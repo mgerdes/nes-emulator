@@ -73,5 +73,5 @@ var updateScreen = function() {
     var idx = ppu.readByte(0x3F00);
     var color = palette[idx];
     screenContext.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-    screenContext.fillRect(0, 0, 150, 150);
+    screenContext.fillRect(0, 0, 256, 256);
 };

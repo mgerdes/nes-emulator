@@ -33,13 +33,10 @@ var initRom = function(file) {
         cpu.reset();
         ppu.init();
 
-        for (var j = 0; j < 5; j++) {
-            var start = 0;
-            if (j == 0) start = 1;
+        for (var j = 0; j < 13; j++) {
+            console.log('frame - ' + j);
 
-            console.log(j);
-
-            for (var i = start; i <= 262; i++) {
+            for (var i = 0; i < 262; i++) {
                 ppu.run();
                 cpu.run(Math.floor(1364 / 12));
             }
