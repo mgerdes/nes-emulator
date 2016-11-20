@@ -16,6 +16,16 @@ var setBit = function(value, bit, on) {
 var cpu = new NES.CPU();
 var ppu = new NES.PPU();
 
+var frameNumber = 0;
+var frame = function() {
+    console.log('frame - ' + frameNumber++);
+
+    for (var i = 0; i < 262; i++) {
+        ppu.run();
+        cpu.run(Math.floor(1364 / 12));
+    }
+};
+
 var initRom = function(file) {
     var reader = new FileReader();
     reader.onloadend = function() {
@@ -33,13 +43,10 @@ var initRom = function(file) {
         cpu.reset();
         ppu.init();
 
-        for (var j = 0; j < 13; j++) {
-            console.log('frame - ' + j);
+        setInterval(frame, 16);
 
-            for (var i = 0; i < 262; i++) {
-                ppu.run();
-                cpu.run(Math.floor(1364 / 12));
-            }
+        for (var j = 0; j < 60; j++) {
+
         }
 
         console.log('finished');

@@ -67,11 +67,24 @@ var palette = [
 	[ 0x11, 0x11, 0x11 ]
 ];
 
-var screenContext = document.getElementById('screen-canvas').getContext('2d');
+var screenCanvas = document.getElementById('screen-canvas');
+var screenContext = screenCanvas.getContext('2d');
+var id = screenContext.createImageData(1, 1);
+var d = id.data;
 
 var updateScreen = function() {
     var idx = ppu.readByte(0x3F00);
     var color = palette[idx];
-    screenContext.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-    screenContext.fillRect(0, 0, 256, 256);
+    screenCanvas.style.backgroundColor = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+    //screenContext.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
+    //screenContext.fillRect(0, 0, 256, 240);
+};
+
+var screenSetPixel = function(x, y, c) {
+    d[0] = palette[c][0];
+    d[1] = palette[c][1];
+    d[2] = palette[c][2];
+    d[3] = 255;
+
+    screenContext.putImageData(id, x, y);     
 };

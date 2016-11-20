@@ -20,9 +20,10 @@ NES.CPU = function() {
     var Y = new Int8Array(1);
 
     var ADDR = new Uint16Array(1);
-    var UTEMP = new Uint8Array(1);
     var TEMP = new Int8Array(1);
     var TEMP2 = new Int8Array(1);
+    var UTEMP = new Uint8Array(1);
+    var UTEMP2 = new Uint8Array(1);
 
     P[0] = 0x24;
     PC[0] = 0x0;
@@ -34,6 +35,11 @@ NES.CPU = function() {
     var memory = new Uint8Array(0x10000);
 
     var count = 0;
+
+    this.getCount = function() {
+        return count;
+    };
+
     this.run = function(cycles) {
         //var count = 0;
 
@@ -41,7 +47,6 @@ NES.CPU = function() {
             count++;
             var opCode = me.readByte(PC[0]);
 
-            //if (count >= 89300 && count <= 89315 && count < 0) {
             if (count < 0) {
                 console.log('\ncount: ' + count);
                 console.log('opcode: ' + opCode.toString(16));
@@ -112,7 +117,6 @@ NES.CPU = function() {
                 case 0xB5:
                     UTEMP[0] = X[0];
                     ADDR[0] = me.readByte(PC[0] + 1) + UTEMP[0];
-                    //console.log('addr - ' + ADDR[0].toString(16));
                     A[0] = me.readByte(ADDR[0]);
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
@@ -169,8 +173,6 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
-                    //console.log('addrB1 - ' + ADDR[0].toString(16));
-
                     PC[0] += 2;
                     cycles -= 5;
                     if (ADDR[0] >> 8 != PC[0] >> 8) {
@@ -180,7 +182,8 @@ NES.CPU = function() {
 
                 // STA Absolute
                 case 0x8D:
-                    me.writeByte(me.readWord(PC[0] + 1), A[0]);
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    me.writeByte(ADDR[0], A[0]);
 
                     PC[0] += 3;
                     cycles -= 4;
@@ -482,8 +485,6 @@ NES.CPU = function() {
                     ADDR[0] = me.readWord(me.readByte(PC[0] + 1)) + UTEMP[0];
                     me.writeByte(ADDR[0], A[0]);
 
-                    //console.log('addr91 - ' + ADDR[0].toString(16));
-
                     PC[0] += 2;
                     cycles -= 6;
                     if (ADDR[0] >> 8 != PC[0] >> 8) {
@@ -651,14 +652,6 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], Z_FLAG, result == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(result, 7));
 
-                    /*
-                    if (count == 64058) {
-                        console.log('a - ' + A[0]);
-                        console.log('m - ' + me.readByte(ADDR[0]));
-                        console.log('r - ' + result);
-                    }
-                    */
-
                     PC[0] += 2;
                     cycles -= 2;
                     break;
@@ -762,8 +755,6 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
-                    //console.log('a after: ' + A[0]);
-
                     PC[0] += 1;
                     cycles -= 2;
                     break;
@@ -775,8 +766,6 @@ NES.CPU = function() {
                     A[0] = A[0] | TEMP[0];
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
-
-                    //console.log('a after: ' + A[0]);
 
                     PC[0] += 2;
                     cycles -= 2;
@@ -790,8 +779,6 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
-                    //console.log('a after: ' + A[0]);
-
                     PC[0] += 2;
                     cycles -= 3;
                     break;
@@ -802,8 +789,6 @@ NES.CPU = function() {
                     A[0] = A[0] & TEMP[0];
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
-
-                    //console.log('a after: ' + A[0]);
 
                     PC[0] += 2;
                     cycles -= 2;
@@ -817,8 +802,6 @@ NES.CPU = function() {
                     A[0] = A[0] & TEMP[0];
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
-
-                    //console.log('a after: ' + A[0]);
 
                     PC[0] += 2;
                     cycles -= 4;
@@ -843,8 +826,6 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
-                    //console.log('addr - ' + ADDR[0].toString(16)); 
-
                     PC[0] += 2;
                     cycles -= 4;
                     break;
@@ -854,14 +835,10 @@ NES.CPU = function() {
                     ADDR[0] = me.readByte(PC[0] + 1);
                     TEMP[0] = me.readByte(ADDR[0]);
 
-                    //console.log('m before: ' + TEMP[0]);
-
                     TEMP2[0] = TEMP[0] << 1;
                     TEMP2[0] = setBit(TEMP2[0], 0, testBit(P[0], C_FLAG));
                     me.writeByte(ADDR[0], TEMP2[0]);
                     P[0] = setBit(P[0], C_FLAG, testBit(TEMP[0], 7));
-
-                    //console.log('m after: ' + TEMP2[0]);
 
                     PC[0] += 2;
                     cycles -= 5;
@@ -881,11 +858,12 @@ NES.CPU = function() {
 
                 // ASL (Zero Page)
                 case 0x06:
-                    ADDR[0] = PC[0] + 1;
+                    ADDR[0] = me.readByte(PC[0] + 1);
                     TEMP[0] = me.readByte(ADDR[0]);
                     P[0] = setBit(P[0], C_FLAG, testBit(TEMP[0], 7));
                     TEMP[0] = TEMP[0] << 1;
                     TEMP[0] = setBit(TEMP[0], 0, false);
+                    me.writeByte(ADDR[0], TEMP[0]);
                     P[0] = setBit(P[0], Z_FLAG, TEMP[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(TEMP[0], 7));
 
@@ -915,10 +893,11 @@ NES.CPU = function() {
 
                 // ADC (Immediate)
                 case 0x69:
-                    TEMP[0] = me.readByte(PC[0] + 1);
-                    var result = A[0] + TEMP[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
+                    UTEMP[0] = me.readByte(PC[0] + 1);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
                     P[0] = setBit(P[0], C_FLAG, result >= 0x100);
-                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ TEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
                     A[0] = result;
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
@@ -930,10 +909,11 @@ NES.CPU = function() {
                 // ADC (Zero Page)
                 case 0x65:
                     ADDR[0] = me.readByte(PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    var result = A[0] + TEMP[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
                     P[0] = setBit(P[0], C_FLAG, result >= 0x100);
-                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ TEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
                     A[0] = result;
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
@@ -978,8 +958,6 @@ NES.CPU = function() {
     };
 
     this.writeByte = function(address, value) {
-        if (address == 0xFFFA) console.log('da fuq mate - ' + count);
-
         if (address == 0x4014) {
             for (var i = 0; i < 256; i++) {
                 ppu.oamWriteByte(me.readByte(0x100 * value + i));
