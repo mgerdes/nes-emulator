@@ -13,17 +13,30 @@ var setBit = function(value, bit, on) {
     }
 };
 
+var controller = new NES.Controller();
 var cpu = new NES.CPU();
 var ppu = new NES.PPU();
 
 var frameNumber = 0;
 var frame = function() {
-    console.log('frame - ' + frameNumber++);
+    //if (frameNumber > 100) return;
+
+    //console.log('frame - ' + frameNumber++);
+
+    var startTime = new Date();
 
     for (var i = 0; i < 262; i++) {
         ppu.run();
         cpu.run(Math.floor(1364 / 12));
     }
+
+    var endTime = new Date();
+
+    var elapsedTime = endTime.getTime() - startTime.getTime();
+
+    //if (elapsedTime > 16) {
+    //console.log(endTime.getTime() - startTime.getTime());
+    //}
 };
 
 var initRom = function(file) {
@@ -43,13 +56,7 @@ var initRom = function(file) {
         cpu.reset();
         ppu.init();
 
-        setInterval(frame, 16);
-
-        for (var j = 0; j < 60; j++) {
-
-        }
-
-        console.log('finished');
+        setInterval(frame, 17);
     };
     reader.readAsArrayBuffer(file);
 };

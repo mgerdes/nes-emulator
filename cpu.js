@@ -47,13 +47,15 @@ NES.CPU = function() {
             count++;
             var opCode = me.readByte(PC[0]);
 
-            if (count < 0) {
+            var debugCondition = opCode == 0xC4;
+
+            if (debugCondition) {
                 console.log('\ncount: ' + count);
                 console.log('opcode: ' + opCode.toString(16));
+                console.log('cycles: ' + cycles);
                 console.log('flags: ' + P[0].toString(16));
                 console.log('pc: ' + PC[0].toString(16));
                 console.log('sp: ' + SP[0].toString(16));
-                console.log('cycles: ' + cycles);
                 UTEMP[0] = A[0];
                 console.log('a: ' + UTEMP[0].toString(16));
                 UTEMP[0] = X[0];
@@ -76,7 +78,7 @@ NES.CPU = function() {
                     cycles -= 5;
                     break;
 
-                // SEI Disable
+                // SEI (Implied)
                 case 0x78:
                     P[0] = setBit(P[0], I_FLAG, true);
 
@@ -84,10 +86,25 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
-                // CLD Mode
+                // SEC (Implied)
+                case 0x38:
+                    P[0] = setBit(P[0], C_FLAG, true);
+
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
+                // CLD (Implied)
                 case 0xD8:
                     P[0] = setBit(P[0], D_FLAG, false);
 
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
+                // CBC (Implied)
+                case 0x18:
+                    P[0] = setBit(P[0], C_FLAG, false);
                     PC[0] += 1;
                     cycles -= 2;
                     break;
@@ -270,156 +287,132 @@ NES.CPU = function() {
                     cycles -= 3;
                     break;
 
-                // BPL Relative
-                case 0x10:
-                    ADDR[0] = PC[0] + 1;
-
-                    if (testBit(P[0], N_FLAG)) {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-                    else {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-
-                    if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-                    break;
-
                 // BVS Relative
                 case 0x70:
-                    ADDR[0] = PC[0] + 1;
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
-                    if (testBit(P[0], V_FLAG)) {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-                    else {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (testBit(P[0], V_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
 
                 // BVC Relative
                 case 0x50:
-                    ADDR[0] = PC[0] + 1;
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
-                    if (testBit(P[0], V_FLAG)) {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-                    else {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (!testBit(P[0], V_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
 
                 // BEQ Relative
                 case 0xF0:
-                    ADDR[0] = PC[0] + 1;
-                    
-                    if (testBit(P[0], Z_FLAG)) {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-                    else {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (testBit(P[0], Z_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
 
 
                 // BNE Relative
                 case 0xD0:
-                    ADDR[0] = PC[0] + 1;
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
-                    if (testBit(P[0], Z_FLAG)) {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-                    else {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (!testBit(P[0], Z_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
                 
                 // BCC Relative 
                 case 0x90:
-                    ADDR[0] = PC[0] + 1;
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
-                    if (testBit(P[0], C_FLAG)) {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-                    else {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (!testBit(P[0], C_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
                 
                 // BCS Relative 
                 case 0xB0:
-                    ADDR[0] = PC[0] + 1;
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
-                    if (testBit(P[0], C_FLAG)) {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-                    else {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (testBit(P[0], C_FLAG)) {
+                        PC[0] = ADDR[0];
+                    }
+                    break;
+
+                // BPL Relative
+                case 0x10:
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
+
+                    cycles -= 2;
+                    if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
+                        cycles -= 1;
+                    }
+
+                    if (!testBit(P[0], N_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
 
                 // BMI Relative 
                 case 0x30:
-                    ADDR[0] = PC[0] + 1;
+                    TEMP[0] = me.readByte(PC[0] + 1);
+                    PC[0] += 2;
+                    ADDR[0] = TEMP[0] + PC[0];
 
-                    if (testBit(P[0], N_FLAG)) {
-                        TEMP[0] = me.readByte(ADDR[0]);
-                        PC[0] += (TEMP[0] + 2);
-                        cycles -= 2;
-                    }
-                    else {
-                        PC[0] += 2;
-                        cycles -= 2;
-                    }
-
+                    cycles -= 2;
                     if ((ADDR[0] >> 8) != (PC[0] >> 8)) {
                         cycles -= 1;
+                    }
+
+                    if (testBit(P[0], N_FLAG)) {
+                        PC[0] = ADDR[0];
                     }
                     break;
 
@@ -708,6 +701,18 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
+                // CPY (Zero Page)
+                case 0xC4:
+                    ADDR[0] = me.readByte(PC[0] + 1);
+                    UTEMP[0] = Y[0];
+                    var result = UTEMP[0] - me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], C_FLAG, result >= 0);
+                    P[0] = setBit(P[0], Z_FLAG, result == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(result, 7));
+
+                    PC[0] += 2;
+                    cycles -= 3;
+                    break;
 
                 // JSR Absolute
                 case 0x20:
@@ -742,6 +747,21 @@ NES.CPU = function() {
                     A[0] = me.popByte();
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 1;
+                    cycles -= 4;
+                    break;
+
+                // PHP Implied
+                case 0x08:
+                    me.pushByte(P[0]);
+                    PC[0] += 1;
+                    cycles -= 3;
+                    break;
+
+                // PLP Implied
+                case 0x28:
+                    P[0] = me.popByte();
 
                     PC[0] += 1;
                     cycles -= 4;
@@ -830,6 +850,18 @@ NES.CPU = function() {
                     cycles -= 4;
                     break;
 
+                // ROR (Accumulator)
+                case 0x6A:
+                    TEMP[0] = A[0] >> 1;
+                    TEMP[0] = setBit(TEMP[0], 7, testBit(P[0], C_FLAG));
+                    P[0] = setBit(P[0], C_FLAG, testBit(A[0], 0));
+                    A[0] = TEMP[0];
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
                 // ROL (Zero Page)
                 case 0x26:
                     ADDR[0] = me.readByte(PC[0] + 1);
@@ -839,6 +871,7 @@ NES.CPU = function() {
                     TEMP2[0] = setBit(TEMP2[0], 0, testBit(P[0], C_FLAG));
                     me.writeByte(ADDR[0], TEMP2[0]);
                     P[0] = setBit(P[0], C_FLAG, testBit(TEMP[0], 7));
+                    P[0] = setBit(P[0], N_FLAG, testBit(TEMP2[0], 7));
 
                     PC[0] += 2;
                     cycles -= 5;
@@ -884,13 +917,6 @@ NES.CPU = function() {
                     cycles -= 3;
                     break;
 
-                // CBC (Implied)
-                case 0x18:
-                    P[0] = setBit(P[0], C_FLAG, false);
-                    PC[0] += 1;
-                    cycles -= 2;
-                    break;
-
                 // ADC (Immediate)
                 case 0x69:
                     UTEMP[0] = me.readByte(PC[0] + 1);
@@ -912,7 +938,7 @@ NES.CPU = function() {
                     UTEMP[0] = me.readByte(ADDR[0]);
                     UTEMP2[0] = A[0];
                     var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
-                    P[0] = setBit(P[0], C_FLAG, result >= 0x100);
+                    P[0] = setBit(P[0], C_FLAG, (result &  0x100) != 0);
                     P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
                     A[0] = result;
                     P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
@@ -922,10 +948,54 @@ NES.CPU = function() {
                     cycles -= 3;
                     break;
 
+                // ADC (Absolute)
+                case 0x6D:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
+                    P[0] = setBit(P[0], C_FLAG, (result &  0x100) != 0);
+                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // SBC (Immediate)
+                case 0xE9:
+                    UTEMP[0] = me.readByte(PC[0] + 1);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP2[0] - UTEMP[0] - (testBit(P[0], C_FLAG) ? 0 : 1);
+                    P[0] = setBit(P[0], C_FLAG, (result & 0x100) == 0);
+                    P[0] = setBit(P[0], V_FLAG, ((A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 2;
+                    break;
+
                 default:
                     throw('Invalid opcode: ' + opCode.toString(16));
                     return;
             };
+
+            if (debugCondition) {
+                console.log('after:');
+                console.log('flags: ' + P[0].toString(16));
+                console.log('pc: ' + PC[0].toString(16));
+                console.log('sp: ' + SP[0].toString(16));
+                UTEMP[0] = A[0];
+                console.log('a: ' + UTEMP[0].toString(16));
+                UTEMP[0] = X[0];
+                console.log('x: ' + UTEMP[0].toString(16));
+                UTEMP[0] = Y[0];
+                console.log('y: ' + UTEMP[0].toString(16));
+            }
         }
     };
 
@@ -971,7 +1041,7 @@ NES.CPU = function() {
                 break;
 
             case 2:
-                // Implement controller
+                controller.writeIO(address, value);
                 break;
 
             case 3:
@@ -987,12 +1057,9 @@ NES.CPU = function() {
         switch (address >> 13) {
             case 1:
                 return ppu.readIO(address);
-                break;
 
             case 2:
-                // Implement controller
-                return 0;
-                break;
+                return controller.readIO(address);
 
             case 3: 
                 throw('Implement CPU RAM');

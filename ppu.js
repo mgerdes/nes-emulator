@@ -30,8 +30,20 @@ NES.PPU = function() {
 
     var baseNameTableAddresses = new Uint16Array([0x2000, 0x2400, 0x2800, 0x2C00]);
 
+
+    var combineColorBytes = []; 
     this.init = function() {
         PPUSTATUS |= 0xA0;
+
+        for (var l = 0; l < 256; l++) {
+            combineColorBytes.push([]);
+            for (var h = 0; h < 256; h++) {
+                combineColorBytes[l].push([]);
+                for (var x = 0; x < 8; x++) {
+                    combineColorBytes[l][h].push((((h >> (7 - x)) & 1) << 1) | ((l >> (7 - x)) & 1));
+                }
+            }
+        }
     };
 
     this.readIO = function(address) {
@@ -123,16 +135,24 @@ NES.PPU = function() {
         drawCount2 = 0;
 
         var tileX = testBit(PPUMASK, 1) ? 0 : 1;
+        var tileY = scanline >> 3;
+
         for (; tileX < 32; tileX++) {
-            var tileY = scanline >> 3;
-            var addr = baseNameTableAddresses[PPUCTRL & 0x03] + tileX + (tileY << 5);
-            var tileIndex = me.readByte(baseNameTableAddresses[PPUCTRL & 0x03] + tileX + (tileY << 5))
-            var tileAddress = (testBit(PPUCTRL, 4) ? 0x1000 : 0) + 16 * tileIndex;
+            var address = baseNameTableAddresses[PPUCTRL[0] & 0x03] + tileX + (tileY << 5);
+            var tileIndex = me.readByte(address)
+            var tileAddress = (testBit(PPUCTRL[0], 4) ? 0x1000 : 0) + (tileIndex << 4);
 
             var l = me.readByte(tileAddress + (scanline & 0x07));
             var h = me.readByte(tileAddress + (scanline & 0x07) + 8);
 
-            //console.log(drawCount1 + ', ' + drawCount2 + ', ' + tileAddress.toString(16));
+            var attributeX = tileX >> 2;
+            var attributeY = tileY >> 2;
+
+            var attributeAddress = baseNameTableAddresses[PPUCTRL[0] & 0x03] + 0x3C0 + attributeX + (attributeY << 3);
+            var attribute = me.readByte(attributeAddress);
+            var square = (((tileY % 4) >> 1) << 1) + ((tileX % 4) >> 1);
+            attribute = (attribute >> (square << 1)) & 0x03;
+            attribute = attribute << 2;
 
             for (var x = 0; x < 8; x++) {
                 var color = 0;
@@ -141,25 +161,22 @@ NES.PPU = function() {
 
                 if (color == 0) continue;
 
-                var attributeX = tileX >> 2;
-                var attributeY = tileY >> 2;
-
-                var attributeAddress = baseNameTableAddresses[PPUCTRL & 0x03] + 0x3C0 + attributeX + (attributeY << 3);
-                var attribute = me.readByte(attributeAddress);
-                var square = (((tileY % 4) >> 1) << 1) + ((tileX % 4) >> 1);
-                attribute = (attribute >> (2 * square)) & 0x03;
-                var paletteAddress = 0x3F00 + (attribute << 2) + color;
+                var paletteAddress = 0x3F00 + attribute + color;
                 var idx = me.readByte(paletteAddress);
 
                 //console.log(tileX + ', ' + tileY + ', ' + idx);
 
-                screenSetPixel(8 * tileX + x, scanline, idx); 
+                screenSetPixel((tileX << 3) + x, scanline, idx); 
             }
 
-            drawCount2++;
+            //drawCount2++;
         }
 
-        drawCount1++;
+        //drawCount1++;
+    };
+
+    this.drawSpriteScanline = function() {
+
     };
 
     this.run = function() {
@@ -170,7 +187,7 @@ NES.PPU = function() {
         }
 
         if (testBit(PPUMASK, 4)) {
-            //throw('Need to draw sprites');
+            me.drawSpriteScanline();
         }
 
         if (scanline == 241) {
