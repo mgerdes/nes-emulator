@@ -1,11 +1,12 @@
 <html>
     <head>
         <title>NES Emulator</title>
-        <link rel="stylesheet" type="text/css" href="css/main.css">
     </head>
     <body>
         <input id="rom-file-selector" type="file">
-        <canvas id="screen-canvas" width="256" height="240"></canvas>
+
+        <canvas id="invis-screen-canvas" width="256" height="240" style="display: none;"></canvas>
+        <canvas id="screen-canvas" width="512" height="480"></canvas>
 
         <script src="screen.js"></script>
         <script src="cpu.js"></script>

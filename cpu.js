@@ -47,7 +47,7 @@ NES.CPU = function() {
             count++;
             var opCode = me.readByte(PC[0]);
 
-            var debugCondition = opCode == 0xC4;
+            var debugCondition = false;
 
             if (debugCondition) {
                 console.log('\ncount: ' + count);
@@ -287,6 +287,41 @@ NES.CPU = function() {
                     cycles -= 3;
                     break;
 
+                // LDY (Zero Page, X)
+                case 0xB4:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readByte(PC[0] + 1) + X[0];
+                    Y[0] = me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], Z_FLAG, Y[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(Y[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 4;
+                    break;
+
+                // LDY (Absolute)
+                case 0xAC:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    Y[0] = me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], Z_FLAG, Y[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(Y[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // LDY (Absolute, X)
+                case 0xBC:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
+                    Y[0] = me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], Z_FLAG, Y[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(Y[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
                 // BVS Relative
                 case 0x70:
                     TEMP[0] = me.readByte(PC[0] + 1);
@@ -434,7 +469,7 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
-                // INC Memory (Zero Page)
+                // INC (Zero Page)
                 case 0xE6:
                     ADDR[0] = me.readByte(PC[0] + 1);
                     TEMP[0] = me.readByte(ADDR[0]);
@@ -447,7 +482,21 @@ NES.CPU = function() {
                     cycles -= 5;
                     break;
 
-                // INC Memory (Absolute, X)
+                // INC (Zero Page, X)
+                case 0xF6:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readByte(PC[0] + 1) + UTEMP[0];
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    TEMP[0] += 1;
+                    me.writeByte(ADDR[0], TEMP[0]);
+                    P[0] = setBit(P[0], Z_FLAG, TEMP[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(TEMP[0], 7));
+                    
+                    PC[0] += 2;
+                    cycles -= 6;
+                    break;
+
+                // INC (Absolute, X)
                 case 0xFE:
                     UTEMP[0] = X[0];
                     ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
@@ -596,6 +645,33 @@ NES.CPU = function() {
                     cycles -= 5;
                     break;
 
+                // DEC (Absolute)
+                case 0xCE:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    TEMP[0] -= 1;
+                    me.writeByte(ADDR[0], TEMP[0]);
+                    P[0] = setBit(P[0], Z_FLAG, TEMP[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(TEMP[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 6;
+                    break;
+
+                // DEC (Absolute, X)
+                case 0xDE:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    TEMP[0] -= 1;
+                    me.writeByte(ADDR[0], TEMP[0]);
+                    P[0] = setBit(P[0], Z_FLAG, TEMP[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(TEMP[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 6;
+                    break;
+
                 // DEX Implied
                 case 0xCA:
                     X[0] -= 1;
@@ -660,6 +736,61 @@ NES.CPU = function() {
 
                     PC[0] += 2;
                     cycles -= 3;
+                    break;
+
+                // CMP (Zero Page, X)
+                case 0xD5:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readByte(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = A[0];
+                    var result = UTEMP[0] - me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], C_FLAG, result >= 0);
+                    P[0] = setBit(P[0], Z_FLAG, result == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(result, 7));
+
+                    PC[0] += 2;
+                    cycles -= 4;
+                    break;
+
+                // CMP (Absolute)
+                case 0xCD:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    UTEMP[0] = A[0];
+                    var result = UTEMP[0] - me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], C_FLAG, result >= 0);
+                    P[0] = setBit(P[0], Z_FLAG, result == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(result, 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // CMP (Absolute, X)
+                case 0xDD:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = A[0];
+                    var result = UTEMP[0] - me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], C_FLAG, result >= 0);
+                    P[0] = setBit(P[0], Z_FLAG, result == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(result, 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // CMP (Absolute, Y)
+                case 0xD9:
+                    UTEMP[0] = Y[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = A[0];
+                    var result = UTEMP[0] - me.readByte(ADDR[0]);
+                    P[0] = setBit(P[0], C_FLAG, result >= 0);
+                    P[0] = setBit(P[0], Z_FLAG, result == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(result, 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
                     break;
 
                 // CPX Immediate
@@ -803,6 +934,31 @@ NES.CPU = function() {
                     cycles -= 3;
                     break;
 
+                // ORA (Absolute)
+                case 0x0D:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    A[0] = A[0] | TEMP[0];
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // ORA (Indirect, Y)
+                case 0x11:
+                    UTEMP[0] = Y[0];
+                    ADDR[0] = me.readWord(me.readByte(PC[0] + 1)) + UTEMP[0];
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    A[0] = A[0] | TEMP[0];
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 5;
+                    break;
+
                 // AND (Immediate)
                 case 0x29:
                     TEMP[0] = me.readByte(PC[0] + 1);
@@ -813,6 +969,19 @@ NES.CPU = function() {
                     PC[0] += 2;
                     cycles -= 2;
                     break;
+                    
+                // AND (Zero Page)
+                case 0x25:
+                    ADDR[0] = me.readByte(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    A[0] = A[0] & TEMP[0];
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 3;
+                    break;
+
 
                 // AND (Zero Page, X)
                 case 0x35:
@@ -847,6 +1016,18 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
                     PC[0] += 2;
+                    cycles -= 4;
+                    break;
+
+                // EOR (Absolute);
+                case 0x4D:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    A[0] = A[0] ^ TEMP[0];
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 3;
                     cycles -= 4;
                     break;
 
@@ -948,9 +1129,60 @@ NES.CPU = function() {
                     cycles -= 3;
                     break;
 
+                // ADC (Zero Page, X)
+                case 0x75:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readByte(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
+                    P[0] = setBit(P[0], C_FLAG, (result &  0x100) != 0);
+                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 4;
+                    break;
+
                 // ADC (Absolute)
                 case 0x6D:
                     ADDR[0] = me.readWord(PC[0] + 1);
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
+                    P[0] = setBit(P[0], C_FLAG, (result &  0x100) != 0);
+                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // ADC (Absolute, X)
+                case 0x7D:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
+                    P[0] = setBit(P[0], C_FLAG, (result &  0x100) != 0);
+                    P[0] = setBit(P[0], V_FLAG, (~(A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // ADC (Absolute, Y)
+                case 0x79:
+                    UTEMP[0] = Y[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
                     UTEMP[0] = me.readByte(ADDR[0]);
                     UTEMP2[0] = A[0];
                     var result = UTEMP[0] + UTEMP2[0] + (testBit(P[0], C_FLAG) ? 1 : 0);
@@ -976,6 +1208,79 @@ NES.CPU = function() {
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
                     PC[0] += 2;
+                    cycles -= 2;
+                    break;
+
+                // SBC (Zero Page)
+                case 0xE5:
+                    ADDR[0] = me.readByte(PC[0] + 1);
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP2[0] - UTEMP[0] - (testBit(P[0], C_FLAG) ? 0 : 1);
+                    P[0] = setBit(P[0], C_FLAG, (result & 0x100) == 0);
+                    P[0] = setBit(P[0], V_FLAG, ((A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 3;
+                    break;
+
+                // SBC (Zero Page, X)
+                case 0xF5:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readByte(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP2[0] - UTEMP[0] - (testBit(P[0], C_FLAG) ? 0 : 1);
+                    P[0] = setBit(P[0], C_FLAG, (result & 0x100) == 0);
+                    P[0] = setBit(P[0], V_FLAG, ((A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 4;
+                    break;
+
+                // SBC (Absolute, X)
+                case 0xFD:
+                    UTEMP[0] = X[0];
+                    ADDR[0] = me.readWord(PC[0] + 1) + UTEMP[0];
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP2[0] - UTEMP[0] - (testBit(P[0], C_FLAG) ? 0 : 1);
+                    P[0] = setBit(P[0], C_FLAG, (result & 0x100) == 0);
+                    P[0] = setBit(P[0], V_FLAG, ((A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
+                    break;
+
+                // SBC (Indirect, Y)
+                case 0xF1:
+                    UTEMP[0] = Y[0];
+                    ADDR[0] = me.readWord(me.readByte(PC[0] + 1)) + UTEMP[0];
+                    UTEMP[0] = me.readByte(ADDR[0]);
+                    UTEMP2[0] = A[0];
+                    var result = UTEMP2[0] - UTEMP[0] - (testBit(P[0], C_FLAG) ? 0 : 1);
+                    P[0] = setBit(P[0], C_FLAG, (result & 0x100) == 0);
+                    P[0] = setBit(P[0], V_FLAG, ((A[0] ^ UTEMP[0]) & (A[0] ^ result) & 0x80) != 0);
+                    A[0] = result;
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 5;
+                    break;
+
+                // NOP
+                case 0xEA:
+                    PC[0] += 1;
                     cycles -= 2;
                     break;
 
