@@ -67,18 +67,136 @@ var palette = [
 	[ 0x11, 0x11, 0x11 ]
 ];
 
-var invisScreenCanvas = document.getElementById('invis-screen-canvas');
 var screenCanvas = document.getElementById('screen-canvas');
 var screenContext = screenCanvas.getContext('2d');
 var id = screenContext.createImageData(256, 240);
+
+var selectedPixelX = 0;
+var selectedPixelY = 0;
+
+document.onkeydown = function(event) {
+    // K, A
+    if (event.keyCode == 75) {
+        controller.setKeyDown(1);
+    }
+
+    // J, B
+    if (event.keyCode == 74) {
+        controller.setKeyDown(2);
+    }
+
+    // U, SELECT
+    if (event.keyCode == 85) {
+        controller.setKeyDown(3);
+    }
+
+    // I, START
+    if (event.keyCode == 73) {
+        controller.setKeyDown(4);
+    }
+
+    // W, UP
+    if (event.keyCode == 87) {
+        controller.setKeyDown(5);
+    }
+
+    // S, DOWN
+    if (event.keyCode == 83) {
+        controller.setKeyDown(6);
+    }
+
+    // A, LEFT
+    if (event.keyCode == 65) {
+        controller.setKeyDown(7);
+    }
+
+    // D, RIGHT
+    if (event.keyCode == 68) {
+        controller.setKeyDown(8);
+    }
+
+    // Up
+    if (event.keyCode == 38) {
+        selectedPixelY -= 1; 
+        //console.log(selectedPixelX + ', ' + selectedPixelY);
+    }
+
+    // Left
+    if (event.keyCode == 37) {
+        selectedPixelX -= 1; 
+        //console.log(selectedPixelX + ', ' + selectedPixelY);
+    }
+
+    // Right
+    if (event.keyCode == 39) {
+        selectedPixelX += 1; 
+        //console.log(selectedPixelX + ', ' + selectedPixelY);
+    }
+
+    // Down
+    if (event.keyCode == 40) {
+        selectedPixelY += 1; 
+        //console.log(selectedPixelX + ', ' + selectedPixelY);
+    }
+};
+
+document.onkeyup = function(event) {
+    // K, A
+    if (event.keyCode == 75) {
+        controller.setKeyUp(1);
+    }
+
+    // J, B
+    if (event.keyCode == 74) {
+        controller.setKeyUp(2);
+    }
+
+    // U, SELECT
+    if (event.keyCode == 85) {
+        controller.setKeyUp(3);
+    }
+
+    // I, START
+    if (event.keyCode == 73) {
+        controller.setKeyUp(4);
+    }
+
+    // W, UP
+    if (event.keyCode == 87) {
+        controller.setKeyUp(5);
+    }
+
+    // S, DOWN
+    if (event.keyCode == 83) {
+        controller.setKeyUp(6);
+    }
+
+    // A, LEFT
+    if (event.keyCode == 65) {
+        controller.setKeyUp(7);
+    }
+
+    // D, RIGHT
+    if (event.keyCode == 68) {
+        controller.setKeyUp(8);
+    }
+};
+
+screenCanvas.style.backgroundColor = 'rgb(' + 0 + ',' + 0 + ',' + 0 + ')';
 
 var updateScreen = function() {
     var idx = ppu.readByte(0x3F00);
     var color = palette[idx];
 
     screenCanvas.style.backgroundColor = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-    screenContext.fillStyle = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-    screenContext.fillRect(0, 0, 256, 240);
+
+    /*
+    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 0] = 256;
+    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 1] = 256;
+    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 2] = 256;
+    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 3] = 256;
+    */
+
     screenContext.putImageData(id, 0, 0);
 
     for (var x = 0; x < 256; x++) {
@@ -89,8 +207,6 @@ var updateScreen = function() {
             id.data[4 * (256 * y + x) + 3] = 0;
         }
     }
-
-    screenContext.scale(2, 2);
 };
 
 var screenSetPixel = function(x, y, c) {

@@ -3,11 +3,10 @@
         <title>NES Emulator</title>
     </head>
     <body>
+        <div style="height: 512px; width: 480px;">
+            <canvas id="screen-canvas" width="256" height="240" style="transform: scale(2); transform-origin: left top;"></canvas>
+        </div>
         <input id="rom-file-selector" type="file">
-
-        <canvas id="invis-screen-canvas" width="256" height="240" style="display: none;"></canvas>
-        <canvas id="screen-canvas" width="512" height="480"></canvas>
-
         <script src="screen.js"></script>
         <script src="cpu.js"></script>
         <script src="ppu.js"></script>

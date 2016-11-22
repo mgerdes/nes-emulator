@@ -19,8 +19,6 @@ var ppu = new NES.PPU();
 
 var frameNumber = 0;
 var frame = function() {
-    //if (frameNumber > 100) return;
-
     //console.log('frame - ' + frameNumber++);
 
     var startTime = new Date();
