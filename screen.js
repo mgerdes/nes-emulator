@@ -69,118 +69,10 @@ var palette = [
 
 var screenCanvas = document.getElementById('screen-canvas');
 var screenContext = screenCanvas.getContext('2d');
-var id = screenContext.createImageData(256, 240);
+var id = screenContext.createImageData(512, 480);
 
 var selectedPixelX = 0;
 var selectedPixelY = 0;
-
-document.onkeydown = function(event) {
-    // K, A
-    if (event.keyCode == 75) {
-        controller.setKeyDown(1);
-    }
-
-    // J, B
-    if (event.keyCode == 74) {
-        controller.setKeyDown(2);
-    }
-
-    // U, SELECT
-    if (event.keyCode == 85) {
-        controller.setKeyDown(3);
-    }
-
-    // I, START
-    if (event.keyCode == 73) {
-        controller.setKeyDown(4);
-    }
-
-    // W, UP
-    if (event.keyCode == 87) {
-        controller.setKeyDown(5);
-    }
-
-    // S, DOWN
-    if (event.keyCode == 83) {
-        controller.setKeyDown(6);
-    }
-
-    // A, LEFT
-    if (event.keyCode == 65) {
-        controller.setKeyDown(7);
-    }
-
-    // D, RIGHT
-    if (event.keyCode == 68) {
-        controller.setKeyDown(8);
-    }
-
-    // Up
-    if (event.keyCode == 38) {
-        selectedPixelY -= 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
-    }
-
-    // Left
-    if (event.keyCode == 37) {
-        selectedPixelX -= 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
-    }
-
-    // Right
-    if (event.keyCode == 39) {
-        selectedPixelX += 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
-    }
-
-    // Down
-    if (event.keyCode == 40) {
-        selectedPixelY += 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
-    }
-};
-
-document.onkeyup = function(event) {
-    // K, A
-    if (event.keyCode == 75) {
-        controller.setKeyUp(1);
-    }
-
-    // J, B
-    if (event.keyCode == 74) {
-        controller.setKeyUp(2);
-    }
-
-    // U, SELECT
-    if (event.keyCode == 85) {
-        controller.setKeyUp(3);
-    }
-
-    // I, START
-    if (event.keyCode == 73) {
-        controller.setKeyUp(4);
-    }
-
-    // W, UP
-    if (event.keyCode == 87) {
-        controller.setKeyUp(5);
-    }
-
-    // S, DOWN
-    if (event.keyCode == 83) {
-        controller.setKeyUp(6);
-    }
-
-    // A, LEFT
-    if (event.keyCode == 65) {
-        controller.setKeyUp(7);
-    }
-
-    // D, RIGHT
-    if (event.keyCode == 68) {
-        controller.setKeyUp(8);
-    }
-};
 
 screenCanvas.style.backgroundColor = 'rgb(' + 0 + ',' + 0 + ',' + 0 + ')';
 
@@ -189,29 +81,63 @@ var updateScreen = function() {
     var color = palette[idx];
 
     screenCanvas.style.backgroundColor = 'rgb(' + color[0] + ',' + color[1] + ',' + color[2] + ')';
-
-    /*
-    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 0] = 256;
-    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 1] = 256;
-    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 2] = 256;
-    id.data[4 * (256 * selectedPixelY + selectedPixelX) + 3] = 256;
-    */
-
     screenContext.putImageData(id, 0, 0);
 
-    for (var x = 0; x < 256; x++) {
-        for (var y = 0; y < 240; y++) {
-            id.data[4 * (256 * y + x) + 0] = 0;
-            id.data[4 * (256 * y + x) + 1] = 0;
-            id.data[4 * (256 * y + x) + 2] = 0;
-            id.data[4 * (256 * y + x) + 3] = 0;
+    for (var x = 0; x < 512; x++) {
+        for (var y = 0; y < 480; y++) {
+            id.data[4 * (512 * y + x) + 0] = 0;
+            id.data[4 * (512 * y + x) + 1] = 0;
+            id.data[4 * (512 * y + x) + 2] = 0;
+            id.data[4 * (512 * y + x) + 3] = 0;
         }
     }
 };
 
 var screenSetPixel = function(x, y, c) {
-    id.data[4 * (256 * y + x) + 0] = palette[c][0];
-    id.data[4 * (256 * y + x) + 1] = palette[c][1];
-    id.data[4 * (256 * y + x) + 2] = palette[c][2];
-    id.data[4 * (256 * y + x) + 3] = 256;
+    id.data[4 * (512 * (2 * y) + (2 * x)) + 0] = palette[c][0];
+    id.data[4 * (512 * (2 * y) + (2 * x)) + 1] = palette[c][1];
+    id.data[4 * (512 * (2 * y) + (2 * x)) + 2] = palette[c][2];
+    id.data[4 * (512 * (2 * y) + (2 * x)) + 3] = 256;
+
+    id.data[4 * (512 * (2 * y + 1) + (2 * x)) + 0] = palette[c][0];
+    id.data[4 * (512 * (2 * y + 1) + (2 * x)) + 1] = palette[c][1];
+    id.data[4 * (512 * (2 * y + 1) + (2 * x)) + 2] = palette[c][2];
+    id.data[4 * (512 * (2 * y + 1) + (2 * x)) + 3] = 256;
+
+    id.data[4 * (512 * (2 * y) + (2 * x) + 1) + 0] = palette[c][0];
+    id.data[4 * (512 * (2 * y) + (2 * x) + 1) + 1] = palette[c][1];
+    id.data[4 * (512 * (2 * y) + (2 * x) + 1) + 2] = palette[c][2];
+    id.data[4 * (512 * (2 * y) + (2 * x) + 1) + 3] = 256;
+
+    id.data[4 * (512 * (2 * y + 1) + (2 * x + 1)) + 0] = palette[c][0];
+    id.data[4 * (512 * (2 * y + 1) + (2 * x + 1)) + 1] = palette[c][1];
+    id.data[4 * (512 * (2 * y + 1) + (2 * x + 1)) + 2] = palette[c][2];
+    id.data[4 * (512 * (2 * y + 1) + (2 * x + 1)) + 3] = 256;
 };
+
+var scaleImageData = function(imageData, scale) {
+    var scaled = screenContext.createImageData(imageData.width * scale, imageData.height * scale);
+
+    for(var row = 0; row < imageData.height; row++) {
+        for(var col = 0; col < imageData.width; col++) {
+            var sourcePixel = [
+                imageData.data[(row * imageData.width + col) * 4 + 0],
+                imageData.data[(row * imageData.width + col) * 4 + 1],
+                imageData.data[(row * imageData.width + col) * 4 + 2],
+                imageData.data[(row * imageData.width + col) * 4 + 3]
+            ];
+            for(var y = 0; y < scale; y++) {
+                var destRow = row * scale + y;
+                for(var x = 0; x < scale; x++) {
+                    var destCol = col * scale + x;
+                    for(var i = 0; i < 4; i++) {
+                        scaled.data[(destRow * scaled.width + destCol) * 4 + i] =
+                            sourcePixel[i];
+                    }
+                }
+            }
+        }
+    }
+
+    return scaled;
+}

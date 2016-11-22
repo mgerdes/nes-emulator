@@ -139,6 +139,7 @@ NES.PPU = function() {
             attribute = (attribute >> (square << 1)) & 0x03;
             attribute = attribute << 2;
 
+
             for (var x = 0; x < 8; x++) {
                 var color = 0;
                 color = setBit(color, 0, testBit(l, 7 - x));
@@ -169,7 +170,7 @@ NES.PPU = function() {
             spriteDrawCount++;
 
             if (spriteDrawCount > 8) {
-                //PPUSTATUS[0] = setBit(PPUSTATUS[0], 5, true);
+                PPUSTATUS[0] = setBit(PPUSTATUS[0], 5, true);
             }
 
             var hflip = testBit(me.oamReadByte(i + 2), 6);
@@ -184,6 +185,13 @@ NES.PPU = function() {
 
             var paletteAttribute = me.oamReadByte(i + 2) & 0x03;
             var paletteAddress = 0x3F10 + (paletteAttribute << 2);
+
+            if (scanline == 144 && testBit(me.oamReadByte(i + 2), 5)) {
+                //console.log('yes');
+            }
+            else {
+                //console.log('no');
+            }
 
             for (var x = 0; x < 8; x++) {
                 var color = 0;
@@ -210,11 +218,13 @@ NES.PPU = function() {
         scanline++;
 
         if (testBit(PPUMASK[0], 3)) {
-            me.drawBackgroundScanline(); 
+            if (shouldDrawBackground) 
+                me.drawBackgroundScanline(); 
         }
 
         if (testBit(PPUMASK[0], 4)) {
-            me.drawSpriteScanline();
+            if (shouldDrawSprites)
+                me.drawSpriteScanline();
         }
 
         if (scanline == 241) {
@@ -241,6 +251,10 @@ NES.PPU = function() {
     };
 
     this.writeByte = function(address, value) {
+        if (address == 0x3F00) {
+            //console.log(cpu.publicPC[0].toString(16));
+            //console.log('changed to - ', value.toString(16)); 
+        }
         memory[address] = value;
     };
 

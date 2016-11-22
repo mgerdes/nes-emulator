@@ -1,5 +1,4 @@
 var NES = NES || { };
-
 NES.CPU = function() {
     var me = this;
 
@@ -18,6 +17,8 @@ NES.CPU = function() {
     var A = new Int8Array(1);
     var X = new Int8Array(1);
     var Y = new Int8Array(1);
+
+    me.publicPC = PC;
 
     var ADDR = new Uint16Array(1);
     var TEMP = new Int8Array(1);
@@ -94,6 +95,14 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
+                // SED (Implied)
+                case 0xF8:
+                    P[0] = setBit(P[0], D_FLAG, true);
+
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
                 // CLD (Implied)
                 case 0xD8:
                     P[0] = setBit(P[0], D_FLAG, false);
@@ -105,6 +114,13 @@ NES.CPU = function() {
                 // CBC (Implied)
                 case 0x18:
                     P[0] = setBit(P[0], C_FLAG, false);
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
+                // CLV (Implied)
+                case 0xB8:
+                    P[0] = setBit(P[0], V_FLAG, false);
                     PC[0] += 1;
                     cycles -= 2;
                     break;
@@ -459,6 +475,14 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
+                // TSX Implied
+                case 0xBA:
+                    X[0] = SP[0];
+
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
                 // INX Implied
                 case 0xE8:
                     X[0] += 1;
@@ -494,6 +518,22 @@ NES.CPU = function() {
                     
                     PC[0] += 2;
                     cycles -= 6;
+                    break;
+
+                // INC (Absolute)
+                case 0xEE:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    TEMP[0] += 1;
+                    me.writeByte(ADDR[0], TEMP[0]);
+                    P[0] = setBit(P[0], Z_FLAG, TEMP[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(TEMP[0], 7));
+                    
+                    PC[0] += 3;
+                    cycles -= 6;
+                    if (ADDR[0] >> 8 != PC[0] >> 8) {
+                        cycles -= 1;
+                    }
                     break;
 
                 // INC (Absolute, X)
@@ -1006,6 +1046,18 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
+                // EOR (Zero Page);
+                case 0x45:
+                    ADDR[0] = me.readByte(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    A[0] = A[0] ^ TEMP[0];
+                    P[0] = setBit(P[0], Z_FLAG, A[0] == 0);
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 2;
+                    cycles -= 4;
+                    break;
+
                 // EOR (Zero Page, X);
                 case 0x55:
                     UTEMP[0] = X[0];
@@ -1036,6 +1088,18 @@ NES.CPU = function() {
                     TEMP[0] = A[0] >> 1;
                     TEMP[0] = setBit(TEMP[0], 7, testBit(P[0], C_FLAG));
                     P[0] = setBit(P[0], C_FLAG, testBit(A[0], 0));
+                    A[0] = TEMP[0];
+                    P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
+
+                    PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
+                // ROL (Accumulator)
+                case 0x2A:
+                    TEMP[0] = A[0] << 1;
+                    TEMP[0] = setBit(TEMP[0], 0, testBit(P[0], C_FLAG));
+                    P[0] = setBit(P[0], C_FLAG, testBit(A[0], 7));
                     A[0] = TEMP[0];
                     P[0] = setBit(P[0], N_FLAG, testBit(A[0], 7));
 
@@ -1096,6 +1160,19 @@ NES.CPU = function() {
 
                     PC[0] += 2;
                     cycles -= 3;
+                    break;
+
+                // BIT (Absolute)
+                case 0x2C:
+                    ADDR[0] = me.readWord(PC[0] + 1);
+                    TEMP[0] = me.readByte(ADDR[0]);
+                    TEMP2[0] = TEMP[0] & A[0];
+                    P[0] = setBit(P[0], Z_FLAG, TEMP2[0] == 0);
+                    P[0] = setBit(P[0], V_FLAG, testBit(TEMP[0], 6));
+                    P[0] = setBit(P[0], N_FLAG, testBit(TEMP[0], 7));
+
+                    PC[0] += 3;
+                    cycles -= 4;
                     break;
 
                 // ADC (Immediate)
@@ -1382,6 +1459,10 @@ NES.CPU = function() {
 
     this.readWord = function(address) {
         return me.readByte(address) + (me.readByte(address + 1) << 8);
+    };
+
+    this.setMemory = function(address, data) {
+        memory.set(data, address);
     };
 
     this.loadPrgData = function(prgData) {
