@@ -51,6 +51,8 @@ var initRom = function(file) {
         var prgData = new Uint8Array(reader.result, 16, prgSize);
         var chrData = new Uint8Array(reader.result, 16 + prgSize, chrSize);
 
+        console.log(header[4] + ', ' + header[5]);
+
         if (header[4] == 1) {
             cpu.setMemory(0x8000, prgData);
             cpu.setMemory(0xC000, prgData);
@@ -75,6 +77,11 @@ var initRom = function(file) {
         setInterval(frame, 17);
     };
     reader.readAsArrayBuffer(file);
+};
+
+var saveState = function() {
+    console.log(cpu);
+    console.log(ppu);
 };
 
 var fileSelectorElement = document.getElementById('rom-file-selector');

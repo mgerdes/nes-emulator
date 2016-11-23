@@ -114,30 +114,3 @@ var screenSetPixel = function(x, y, c) {
     id.data[4 * (512 * (2 * y + 1) + (2 * x + 1)) + 2] = palette[c][2];
     id.data[4 * (512 * (2 * y + 1) + (2 * x + 1)) + 3] = 256;
 };
-
-var scaleImageData = function(imageData, scale) {
-    var scaled = screenContext.createImageData(imageData.width * scale, imageData.height * scale);
-
-    for(var row = 0; row < imageData.height; row++) {
-        for(var col = 0; col < imageData.width; col++) {
-            var sourcePixel = [
-                imageData.data[(row * imageData.width + col) * 4 + 0],
-                imageData.data[(row * imageData.width + col) * 4 + 1],
-                imageData.data[(row * imageData.width + col) * 4 + 2],
-                imageData.data[(row * imageData.width + col) * 4 + 3]
-            ];
-            for(var y = 0; y < scale; y++) {
-                var destRow = row * scale + y;
-                for(var x = 0; x < scale; x++) {
-                    var destCol = col * scale + x;
-                    for(var i = 0; i < 4; i++) {
-                        scaled.data[(destRow * scaled.width + destCol) * 4 + i] =
-                            sourcePixel[i];
-                    }
-                }
-            }
-        }
-    }
-
-    return scaled;
-}

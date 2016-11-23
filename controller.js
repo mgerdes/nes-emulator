@@ -16,6 +16,7 @@ NES.Controller = function() {
     };
 
     this.readIO = function(address) {
+        console.log('Read the controller');
         if (address == 0x4016) {
             if (p++ < 8) {
                 return state[p];
