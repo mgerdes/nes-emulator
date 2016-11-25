@@ -8,11 +8,16 @@ NES.PPU = function() {
     me.PPUSTATUS = new Uint8Array(1);
     me.OAMADDR = new Uint8Array(1);
     me.OAMDATA = new Uint8Array(1);
-    //var PPUSCROLL_X = 0;
+    me.PPUSCROLL_X = new Uint8Array(1);;
     //var PPUSCROLL_Y = 0;
     me.PPUADDR = new Uint16Array(1);
     //var PPUDATA = 0;
     //var OAMDMA = 0;
+
+    me.t = 0;
+    me.w = 0;
+    me.v = 0;
+    me.x = 0;
 
     me.scanline = 0;
 
@@ -25,6 +30,11 @@ NES.PPU = function() {
     me.firstRead = true;
     me.scrollReceivedX = false; 
     me.spriteHitOccured = false;
+
+    me.screenBackground = new Array(528);
+    for (x = 0; x < 528; x++) {
+        me.screenBackground[x] = new Array(248);
+    }
 
     var UTEMP = new Uint8Array(1);
     var baseNameTableAddresses = new Uint16Array([0x2000, 0x2400, 0x2800, 0x2C00]);
@@ -39,6 +49,7 @@ NES.PPU = function() {
         switch (address) {
             case 0x2002:
                 var value = me.PPUSTATUS[0];
+                me.w = 0;
                 me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 7, false);
                 me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 6, false);
                 me.scrollReceivedX = false;
@@ -47,6 +58,8 @@ NES.PPU = function() {
 
             case 0x2007:
                 var data = me.readByte(me.PPUADDR[0]);
+
+                me.v += (testBit(me.PPUCTRL[0], 2) ? 32 : 1);
 
                 if (me.firstRead) {
                     me.firstRead = false;
@@ -65,8 +78,11 @@ NES.PPU = function() {
     this.writeIO = function(address, value) {
         me.PPUADDR[0] = me.PPUADDR[0] & 0x3FFF;
 
+        value = value & 0xFF;
+
         switch (address) {
             case 0x2000:
+                me.t = (me.t & 0xF3FF) | ((value & 0x03) << 10);
                 me.PPUCTRL[0] = value;
                 break;
 
@@ -79,17 +95,38 @@ NES.PPU = function() {
                 break;
 
             case 0x2005:
+                if (me.w == 0) {
+                    me.t = (me.t & 0xFFE0) | ((value & 0xF8) >> 3);
+                    me.x = value & 0x0007; 
+                    me.w = 1;
+                }
+                else {
+                    me.t = (me.t & 0x8FFF) | ((value & 0x07) << 12);
+                    me.t = (me.t & 0xFC1F) | ((value & 0xF8) << 2);
+                    me.w = 0;
+                }
+
                 if (me.scrollReceivedX) {
                     //PPUSCROLL_Y = value;
                 }
                 else {
-                    //PPUSCROLL_X = value;
+                    me.PPUSCROLL_X[0] = value;
                 }
 
                 me.scrollReceivedX = !me.scrollReceivedX;
                 break;
 
             case 0x2006:
+                if (me.w == 0) {
+                    me.t = (me.t & 0x80FF) | ((value & 0x3F) << 8);
+                    me.w = 1;
+                }
+                else {
+                    me.t = (me.t & 0xFF00) | value;
+                    me.v = me.t;
+                    me.w = 0;
+                }
+
                 if (me.addrReceivedHighByte) {
                     UTEMP[0] = value;
                     me.PPUADDR[0] = (me.addrLatch[0] << 8) + UTEMP[0];
@@ -103,6 +140,8 @@ NES.PPU = function() {
                 break;
 
             case 0x2007:
+                me.v += (testBit(me.PPUCTRL[0], 2) ? 32 : 1);
+
                 if (me.firstRead) {
                     me.firstRead = false;
                 }
@@ -118,41 +157,91 @@ NES.PPU = function() {
         }
     };
 
+    me.tileData1 = new Array(8);
+    me.tileData2 = new Array(8);
+
+    this.updateTileData = function() {
+        var tileIndex = me.readByte(0x2000 | (me.v & 0x0FFF));
+        var tileAddress = (testBit(me.PPUCTRL[0], 4) ? 0x1000 : 0) | (tileIndex << 4);
+        var fineY = (ppu.v >> 12) & 0x07;
+        var l = me.readByte(tileAddress + fineY);
+        var h = me.readByte(tileAddress + fineY + 8);
+
+        var attributeAddress = 0x23C0 | (me.v & 0x0C00) | ((me.v >> 4) & 0x38) | ((me.v >> 2) & 0x07);
+        var shift = ((me.v >> 4) & 4) | (me.v & 2);
+        var attribute = ((me.readByte(attributeAddress) >> shift) & 3) << 2;
+
+        for (var i = 0; i < 8; i++) {
+            me.tileData1[i] = me.tileData2[i];
+            me.tileData2[i] = 0;
+
+            me.tileData2[i] = setBit(me.tileData2[i], 0, testBit(l, 7 - i));
+            me.tileData2[i] = setBit(me.tileData2[i], 1, testBit(h, 7 - i));
+            me.tileData2[i] = me.tileData2[i] | attribute;
+        }
+    };
+
+    this.copyX = function() {
+        me.v = (me.v & 0xFBE0) | (me.t & 0x041F)
+    };
+
+    this.incrementX = function() {
+        if ((me.v & 0x001F) == 0x1F) {
+            me.v = me.v & 0xFFE0
+            me.v = me.v ^ 0x0400
+        } else {
+            me.v += 1;
+        }
+    };
+
+    this.incrementY = function() {
+        if ((me.v & 0x7000) != 0x7000) { 
+            me.v += 0x1000;           
+        }
+        else {
+            me.v &= 0x8FFF;
+            var y = (me.v & 0x03E0) >> 5;
+            if (y == 29) {
+                y = 0;
+                me.v ^= 0x0800;
+            }
+            else if (y == 31) {
+                y = 0;
+            }
+            else {
+                y += 1;
+            }
+            me.v = (me.v & 0xFC1F) | (y << 5);
+        }
+    };
+
     this.drawBackgroundScanline = function() {
-        var tileX = testBit(me.PPUMASK[0], 1) ? 0 : 1;
-        var tileY = me.scanline >> 3;
+        me.copyX();
+        me.updateTileData();
 
-        for (; tileX < 32; tileX++) {
-            var address = baseNameTableAddresses[me.PPUCTRL[0] & 0x03] + tileX + (tileY << 5);
-            var tileIndex = me.readByte(address)
-            var tileAddress = (testBit(me.PPUCTRL[0], 4) ? 0x1000 : 0) + (tileIndex << 4);
+        for (i = 0; i < 32; i++) {
+            me.incrementX();
+            me.updateTileData();
 
-            var l = me.readByte(tileAddress + (me.scanline & 0x07));
-            var h = me.readByte(tileAddress + (me.scanline & 0x07) + 8);
-
-            var attributeX = tileX >> 2;
-            var attributeY = tileY >> 2;
-
-            var attributeAddress = baseNameTableAddresses[me.PPUCTRL[0] & 0x03] + 0x3C0 + attributeX + (attributeY << 3);
-            var attribute = me.readByte(attributeAddress);
-            var square = (((tileY % 4) >> 1) << 1) + ((tileX % 4) >> 1);
-            attribute = (attribute >> (square << 1)) & 0x03;
-            attribute = attribute << 2;
-
-
-            for (var x = 0; x < 8; x++) {
+            for (j = 0; j < 8; j++) {
                 var color = 0;
-                color = setBit(color, 0, testBit(l, 7 - x));
-                color = setBit(color, 1, testBit(h, 7 - x));
 
-                if (color == 0) continue;
+                if (me.x + j < 8) {
+                    color = me.tileData1[me.x + j];     
+                }
+                else {
+                    color = me.tileData2[(me.x + j) % 8];
+                }
 
-                var paletteAddress = 0x3F00 + attribute + color;
-                var idx = me.readByte(paletteAddress);
-
-                screenSetPixel((tileX << 3) + x, me.scanline, idx); 
+                if (color != 0) {
+                    var paletteAddress = 0x3F00 + color;
+                    var idx = me.readByte(paletteAddress);
+                    screenSetPixel(i * 8 + j, me.scanline, idx); 
+                    me.screenBackground[i * 8 + j][me.scanline] = (color & 0x3);
+                }
             }
         }
+        me.incrementY();
     };
 
     this.drawSpriteScanline = function() {
@@ -179,19 +268,12 @@ NES.PPU = function() {
             var tileAddress = (testBit(me.PPUCTRL[0], 3) ? 0x1000 : 0);
             tileAddress += (16 * me.oamReadByte(i + 1));
             tileAddress += (vflip ? (7 - (me.scanline & 0x07)) : (me.scanline & 0x07));
-            
+
             var l = me.readByte(tileAddress);
             var h = me.readByte(tileAddress + 8);
 
             var paletteAttribute = me.oamReadByte(i + 2) & 0x03;
             var paletteAddress = 0x3F10 + (paletteAttribute << 2);
-
-            if (me.scanline == 144 && testBit(me.oamReadByte(i + 2), 5)) {
-                //console.log('yes');
-            }
-            else {
-                //console.log('no');
-            }
 
             for (var x = 0; x < 8; x++) {
                 var color = 0;
@@ -210,7 +292,7 @@ NES.PPU = function() {
                 var idx = me.readByte(paletteAddress + color);
                 screenSetPixel(spriteX + x, spriteY + (me.scanline & 0x07), idx);  
 
-                if (testBit(me.PPUMASK[0], 3) && !me.spriteHitOccured && i == 0) {
+                if (testBit(me.PPUMASK[0], 3) && !me.spriteHitOccured && i == 0 && me.screenBackground[spriteX + x][spriteY + (me.scanline & 0x07)] == color) {
                     me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 6, true);
                     me.spriteHitOccured = true;
                 }
@@ -219,32 +301,33 @@ NES.PPU = function() {
     };
 
     this.run = function() {
-        me.scanline++;
-
-        if (testBit(me.PPUMASK[0], 3)) {
-            if (shouldDrawBackground) 
+        if (me.scanline == -1) {
+            me.v = me.t;
+        }
+        else if (me.scanline < 240) {
+            if (testBit(me.PPUMASK[0], 3)) {
                 me.drawBackgroundScanline(); 
-        }
+            }
 
-        if (testBit(me.PPUMASK[0], 4)) {
-            if (shouldDrawSprites)
+            if (testBit(me.PPUMASK[0], 4)) {
                 me.drawSpriteScanline();
+            }
         }
-
-        if (me.scanline == 241) {
+        else if (me.scanline == 240) {
             me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 6, false);
             me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 7, true);
             if (testBit(me.PPUCTRL[0], 7)) {
                 cpu.interrupt();
             }
         }
-        if (me.scanline == 262) {
-            me.scanline = -1;
+        else if (me.scanline == 261) {
+            me.scanline = -2;
             me.spriteHitOccured = false;
             me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 7, false);
-
             updateScreen();
         }
+
+        me.scanline++;
     };
 
     this.oamWriteByte = function(value) {
@@ -256,9 +339,6 @@ NES.PPU = function() {
     };
 
     this.writeByte = function(address, value) {
-        if (address == 0x3F00) {
-            //console.log('changed to - ', value.toString(16)); 
-        }
         me.memory[address] = value;
     };
 

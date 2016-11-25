@@ -26,7 +26,7 @@ var frame = function() {
 
     var startTime = new Date();
 
-    for (var i = 0; i < 262; i++) {
+    for (var i = 0; i < 263; i++) {
         ppu.run();
         cpu.run(Math.floor(1364 / 12));
     }
@@ -35,9 +35,9 @@ var frame = function() {
 
     var elapsedTime = endTime.getTime() - startTime.getTime();
 
-    //if (elapsedTime > 16) {
-    //console.log(endTime.getTime() - startTime.getTime());
-    //}
+    if (elapsedTime > 16) {
+        //console.log(endTime.getTime() - startTime.getTime());
+    }
 };
 
 var initRom = function(file) {

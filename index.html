@@ -1,12 +1,17 @@
 <html>
     <head>
         <title>NES Emulator</title>
+        <style>
+            body {
+                background: #000; 
+            };
+        </style>
     </head>
     <body>
-        <div>
-            <canvas id="screen-canvas" width="512" height="480"></canvas>
+        <div style="margin: auto; display: block">
+            <canvas id="screen-canvas" width="512" height="480" style="margin: auto; display: block"></canvas>
         </div>
-        <input id="rom-file-selector" type="file">
+        <input id="rom-file-selector" type="file" style="margin: auto; margin-top: 20px; display: block; color: white;"/>
         <script src="screen.js"></script>
         <script src="cpu.js"></script>
         <script src="ppu.js"></script>
