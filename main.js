@@ -74,7 +74,7 @@ var initRom = function(file) {
         cpu.reset();
         ppu.init();
 
-        setInterval(frame, 17);
+        setInterval(frame, 16);
     };
     reader.readAsArrayBuffer(file);
 };

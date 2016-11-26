@@ -35,10 +35,317 @@ NES.CPU = function() {
     me.memory = new Uint8Array(0x10000);
     var count = 0;
 
-    var indirectX = function() {
-        UTEMP[0] = me.X[0];
-        UTEMP2[0] = me.readByte(me.PC[0] + 1);
-        ADDR[0] = me.readByte((UTEMP2[0] + UTEMP[0] + 1) & 0xFF) << 8 + me.readByte((UTEMP2[0] + UTEMP[0]) & 0xFF);
+    var addressModes = {
+        immediate: function() {
+            return me.PC[0] + 1;
+        },
+
+        zeroPage: function() {
+            return me.readByte(me.PC[0] + 1);
+        },
+
+        zeroPageX: function() {
+            UTEMP[0] = me.X[0];
+            var a = me.readByte(me.PC[0] + 1);
+            return (a + UTEMP[0]) & 0xFF;
+        },
+
+        zeroPageY: function() {
+            UTEMP[0] = me.Y[0];
+            var a = me.readByte(me.PC[0] + 1);
+            return (a + UTEMP[0]) & 0xFF;
+        },
+
+        absolute: function() {
+            return me.readWord(me.PC[0] + 1);
+        },
+
+        absoluteX: function() {
+            UTEMP[0] = me.X[0];
+            var a = me.readWord(me.PC[0] + 1);
+            return (a + UTEMP[0]) & 0xFFFF;
+        },
+
+        absoluteY: function() {
+            UTEMP[0] = me.Y[0];
+            var a = me.readWord(me.PC[0] + 1);
+            return (a + UTEMP[0]) & 0xFFFF;
+        },
+
+        indirectX: function() {
+            var a = me.readByte(me.PC[0] + 1);
+            return ((me.readByte((a + me.X[0] + 1) & 0xFF) << 8) + me.readByte((a + me.X[0]) & 0xFF)) & 0xFFFF;
+        },
+
+        indirectY: function() {
+            UTEMP[0] = me.Y[0];
+            var a = me.readByte(me.PC[0] + 1);
+            return ((me.readByte((a + 1) & 0xFF) << 8) + me.readByte(a) + UTEMP[0]) & 0xFFFF;
+        },
+
+        relative: function() {
+            TEMP[0] = me.readByte(me.PC[0] + 1);
+            return (TEMP[0] + me.PC[0]) & 0xFFFF;
+        },
+    };
+
+    var instructions = {
+        lda: function(address) {
+            me.A[0] = me.readByte(address);
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        ldx: function(address) {
+            me.X[0] = me.readByte(address);
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
+        },
+
+        ldy: function(address) {
+            me.Y[0] = me.readByte(address);
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
+        },
+
+        sta: function(address) {
+            me.writeByte(address, me.A[0]);
+        },
+
+        stx: function(address) {
+            me.writeByte(address, me.X[0]);
+        },
+
+        sty: function(address) {
+            me.writeByte(address, me.Y[0]);
+        },
+
+        txs: function() {
+            me.SP[0] = me.X[0];
+        },
+
+        tay: function() {
+            me.Y[0] = me.A[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
+        },
+
+        tax: function() {
+            me.X[0] = me.A[0]; 
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
+        },
+
+        tya: function() {
+            me.A[0] = me.Y[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        txa: function() {
+            me.A[0] = me.X[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        tsx: function() {
+            me.X[0] = me.SP[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
+        },
+
+        inx: function() {
+            me.X[0] += 1;
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
+        },
+
+        iny: function() {
+            me.Y[0] += 1;
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
+        },
+
+        inc: function(address) {
+            TEMP[0] = me.readByte(address);
+            TEMP[0] += 1;
+            me.writeByte(address, TEMP[0]);
+            me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
+        },
+
+        dex: function() {
+            me.X[0] -= 1;
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
+        },
+
+        dey: function() {
+            me.Y[0] -= 1;
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
+        },
+
+        dec: function(address) {
+            TEMP[0] = me.readByte(address);
+            TEMP[0] -= 1;
+            me.writeByte(address, TEMP[0]);
+            me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
+        },
+
+        branch: function(expression, address) {
+            if (expression) {
+                me.PC[0] = address;
+            }
+        },
+
+        cmp: function(address) {
+            UTEMP[0] = me.A[0];
+            var result = UTEMP[0] - me.readByte(address);
+            me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
+            me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
+        },
+
+        cpx: function(address) {
+            UTEMP[0] = me.X[0];
+            var result = UTEMP[0] - me.readByte(address);
+            me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
+            me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
+        },
+
+        cpy: function(address) {
+            UTEMP[0] = me.Y[0];
+            var result = UTEMP[0] - me.readByte(address);
+            me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
+            me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
+        },
+
+        pla: function() {
+            me.A[0] = me.popByte();
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        lsr: function(address) {
+            if (address == undefined) {
+                me.P[0] = setBit(me.P[0], C_FLAG, testBit(me.A[0], 0));
+                me.A[0] = me.A[0] >> 1;
+                me.A[0] = setBit(me.A[0], 7, false);
+                me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+                me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+            }
+            else {
+                UTEMP[0] = me.readByte(address);
+                me.P[0] = setBit(me.P[0], C_FLAG, testBit(UTEMP[0], 0));
+                UTEMP[0] = UTEMP[0] >> 1;
+                UTEMP[0] = setBit(UTEMP[0], 7, false);
+                me.writeByte(address, UTEMP[0]);
+                me.P[0] = setBit(me.P[0], Z_FLAG, UTEMP[0] == 0);
+                me.P[0] = setBit(me.P[0], N_FLAG, testBit(UTEMP[0], 7));
+            }
+        },
+
+        ora: function(address) {
+            TEMP[0] = me.readByte(address);
+            me.A[0] = me.A[0] | TEMP[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        and: function(address) {
+            TEMP[0] = me.readByte(address);
+            me.A[0] = me.A[0] & TEMP[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        eor: function(address) {
+            TEMP[0] = me.readByte(address);
+            me.A[0] = me.A[0] ^ TEMP[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        ror: function(address) {
+            if (address == undefined) {
+                TEMP[0] = me.A[0] >> 1;
+                TEMP[0] = setBit(TEMP[0], 7, testBit(me.P[0], C_FLAG));
+                me.P[0] = setBit(me.P[0], C_FLAG, testBit(me.A[0], 0));
+                me.A[0] = TEMP[0];
+                me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+            }
+            else {
+                TEMP[0] = me.readByte(address);
+                TEMP2[0] = TEMP[0] >> 1;
+                TEMP2[0] = setBit(TEMP2[0], 7, testBit(me.P[0], C_FLAG));
+                me.writeByte(address, TEMP2[0]);
+                me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 0));
+                me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
+            }
+        },
+        
+        rol: function(address) {
+            if (address == undefined) {
+                TEMP[0] = me.A[0] << 1;
+                TEMP[0] = setBit(TEMP[0], 0, testBit(me.P[0], C_FLAG));
+                me.P[0] = setBit(me.P[0], C_FLAG, testBit(me.A[0], 7));
+                me.A[0] = TEMP[0];
+                me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+            }
+            else {
+                TEMP[0] = me.readByte(address);
+                TEMP2[0] = TEMP[0] << 1;
+                TEMP2[0] = setBit(TEMP2[0], 0, testBit(me.P[0], C_FLAG));
+                me.writeByte(address, TEMP2[0]);
+                me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
+                me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
+            }
+        },
+
+        asl: function(address) {
+            TEMP[0] = me.readByte(address);
+            me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
+            TEMP[0] = TEMP[0] << 1;
+            TEMP[0] = setBit(TEMP[0], 0, false);
+            me.writeByte(address, TEMP[0]);
+            me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
+        },
+
+        bit: function(address) {
+            TEMP[0] = me.readByte(address);
+            TEMP2[0] = TEMP[0] & me.A[0];
+            me.P[0] = setBit(me.P[0], Z_FLAG, TEMP2[0] == 0);
+            me.P[0] = setBit(me.P[0], V_FLAG, testBit(TEMP[0], 6));
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
+        },
+
+        adc: function(address) {
+            UTEMP[0] = me.readByte(address);
+            UTEMP2[0] = me.A[0];
+            var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
+            me.P[0] = setBit(me.P[0], C_FLAG, result >= 0x100);
+            me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
+            me.A[0] = result;
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+        },
+
+        sbc: function(address) {
+            UTEMP[0] = me.readByte(address);
+            UTEMP2[0] = me.A[0];
+            var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
+            me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
+            me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
+            me.A[0] = result;
+            me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
+            me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
+
+        },
     };
 
     this.getCount = function() {
@@ -46,8 +353,6 @@ NES.CPU = function() {
     };
 
     this.run = function(cycles) {
-        //var count = 0;
-
         var prevOpCode = null;
 
         while (cycles > 0) {
@@ -95,46 +400,42 @@ NES.CPU = function() {
                     cycles -= 5;
                     break;
 
-                // SEI (Implied)
+                // SEI Implied
                 case 0x78:
                     me.P[0] = setBit(me.P[0], I_FLAG, true);
-
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // SEC (Implied)
+                // SEC Implied
                 case 0x38:
                     me.P[0] = setBit(me.P[0], C_FLAG, true);
-
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // SED (Implied)
+                // SED Implied
                 case 0xF8:
                     me.P[0] = setBit(me.P[0], D_FLAG, true);
-
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // CLD (Implied)
+                // CLD Implied
                 case 0xD8:
                     me.P[0] = setBit(me.P[0], D_FLAG, false);
-
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // CBC (Implied)
+                // CBC Implied
                 case 0x18:
                     me.P[0] = setBit(me.P[0], C_FLAG, false);
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // CLV (Implied)
+                // CLV Implied
                 case 0xB8:
                     me.P[0] = setBit(me.P[0], V_FLAG, false);
                     me.PC[0] += 1;
@@ -143,875 +444,497 @@ NES.CPU = function() {
 
                 // LDA Immediate
                 case 0xA9:
-                    me.A[0] = me.readByte(me.PC[0] + 1);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
                 // LDA Zero Page
                 case 0xA5:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    me.A[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // LDA (Zero Page, X)
+                // LDA Zero Page, X
                 case 0xB5:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    me.A[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
                 // LDA Absolute
                 case 0xAD:
-                    me.A[0] = me.readByte(me.readWord(me.PC[0] + 1));
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // LDA (Absolute, X)
+                // LDA Absolute, X
                 case 0xBD:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    me.A[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
-                // LDA (Absolute, Y)
+                // LDA Absolute, Y
                 case 0xB9:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    me.A[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
-                // LDA (Indirect, X)
+                // LDA Indirect, X
                 case 0xA1:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    me.A[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // LDA (Indirect, Y)
+                // LDA Indirect, Y
                 case 0xB1:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    me.A[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lda(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
                 // LDX Immediate
                 case 0xA2:
-                    me.X[0] = me.readByte(me.PC[0] + 1);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.ldx(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
                 // LDX Zero Page
                 case 0xA6:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    me.X[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.ldx(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // LDX (Zero Page, Y)
+                // LDX Zero Page, Y
                 case 0xB6:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    me.X[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.ldx(addressModes.zeroPageY());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
                 // LDX Absolute
                 case 0xAE:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    me.X[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.ldx(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // LDX (Absolute, Y)
+                // LDX Absolute, Y
                 case 0xBE:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    me.X[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.ldx(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
                 // LDY Immediate
                 case 0xA0:
-                    me.Y[0] = me.readByte(me.PC[0] + 1);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.ldy(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // LDY (Zero Page)
+                // LDY Zero Page
                 case 0xA4:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    me.Y[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.ldy(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // LDY (Zero Page, X)
+                // LDY Zero Page, X
                 case 0xB4:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    me.Y[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.ldy(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
-                // LDY (Absolute)
+                // LDY Absolute
                 case 0xAC:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    me.Y[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.ldy(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
                 // LDY (Absolute, X)
                 case 0xBC:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    me.Y[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.ldy(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
                 // BVS Relative
                 case 0x70:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(testBit(me.P[0], V_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (testBit(me.P[0], V_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
 
                 // BVC Relative
                 case 0x50:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(!testBit(me.P[0], V_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (!testBit(me.P[0], V_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
 
                 // BEQ Relative
                 case 0xF0:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(testBit(me.P[0], Z_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (testBit(me.P[0], Z_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
-
 
                 // BNE Relative
                 case 0xD0:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(!testBit(me.P[0], Z_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (!testBit(me.P[0], Z_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
                 
                 // BCC Relative 
                 case 0x90:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(!testBit(me.P[0], C_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (!testBit(me.P[0], C_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
                 
                 // BCS Relative 
                 case 0xB0:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(testBit(me.P[0], C_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (testBit(me.P[0], C_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
 
                 // BPL Relative
                 case 0x10:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(!testBit(me.P[0], N_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (!testBit(me.P[0], N_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
 
                 // BMI Relative 
                 case 0x30:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
+                    instructions.branch(testBit(me.P[0], N_FLAG), addressModes.relative());
                     me.PC[0] += 2;
-                    ADDR[0] = TEMP[0] + me.PC[0];
-
                     cycles -= 2;
-                    if ((ADDR[0] >> 8) != (me.PC[0] >> 8)) {
-                        cycles -= 1;
-                    }
-
-                    if (testBit(me.P[0], N_FLAG)) {
-                        me.PC[0] = ADDR[0];
-                    }
                     break;
 
                 // TXS Implied
                 case 0x9A:
-                    me.SP[0] = me.X[0];
-
+                    instructions.txs();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
                 // TSX Implied
                 case 0xBA:
-                    me.X[0] = me.SP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.tsx();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
                 // INX Implied
                 case 0xE8:
-                    me.X[0] += 1;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.inx();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // INC (Zero Page)
+                // INC Zero Page
                 case 0xE6:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] += 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-                    
+                    instructions.inc(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // INC (Zero Page, X)
+                // INC Zero Page, X
                 case 0xF6:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] += 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-                    
+                    instructions.inc(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
-                // INC (Absolute)
+                // INC Absolute
                 case 0xEE:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] += 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-                    
+                    instructions.inc(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 6;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
-                // INC (Absolute, X)
+                // INC Absolute, X
                 case 0xFE:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] += 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-                    
+                    instructions.inc(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 7;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
                 // STA Zero Page
                 case 0x85:
-                    me.writeByte(me.readByte(me.PC[0] + 1), me.A[0]);
-
+                    instructions.sta(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
                 // STA Zero Page, X
                 case 0x95:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    me.writeByte(ADDR[0], me.A[0]);
-
+                    instructions.sta(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
                 // STA Absolute
                 case 0x8D:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    me.writeByte(ADDR[0], me.A[0]);
-
+                    instructions.sta(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // STA (Absolute, X)
+                // STA Absolute, X
                 case 0x9D:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    me.writeByte(ADDR[0], me.A[0]);
-
+                    instructions.sta(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 5;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
-                // STA (Absolute, Y)
+                // STA Absolute, Y
                 case 0x99:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    me.writeByte(ADDR[0], me.A[0]);
-
+                    instructions.sta(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 5;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
-                // STA (Indirect, X)
+                // STA Indirect, X
                 case 0x81:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    me.writeByte(ADDR[0], me.A[0]);
-
+                    instructions.sta(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
-                // STA (Indirect, Y)
+                // STA Indirect, Y
                 case 0x91:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    me.writeByte(ADDR[0], me.A[0]);
-
+                    instructions.sta(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 6;
-                    if (ADDR[0] >> 8 != me.PC[0] >> 8) {
-                        cycles -= 1;
-                    }
                     break;
 
                 // TXA Implied
                 case 0x8A:
-                    me.A[0] = me.X[0]; 
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-                    
+                    instructions.txa();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
                 // TAY Implied
                 case 0xA8:
-                    me.Y[0] = me.A[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.tay();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // STX (Zero Page)
+                // STX Zero Page
                 case 0x86:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    me.writeByte(me.readByte(me.PC[0] + 1), me.X[0]);
-
+                    instructions.stx(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // STX (Zero Page, Y)
+                // STX Zero Page, Y
                 case 0x96:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    me.writeByte(ADDR[0], me.X[0]);
-
+                    instructions.stx(addressModes.zeroPageY());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
                 // STX Absolute
                 case 0x8E:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    me.writeByte(ADDR[0], me.X[0]);
-
+                    instructions.stx(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // STY (Zero Page)
+                // STY Zero Page
                 case 0x84:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    me.writeByte(ADDR[0], me.Y[0]);
-
+                    instructions.sty(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // STY (Zero Page, X)
+                // STY Zero Page, X
                 case 0x94:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    me.writeByte(ADDR[0], me.Y[0]);
-
+                    instructions.sty(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
                 // STY Absolute
                 case 0x8C:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    me.writeByte(ADDR[0], me.Y[0]);
-
+                    instructions.sty(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
                 // INY Implied
                 case 0xC8:
-                    me.Y[0] += 1;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.iny();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // DEC (Zero Page)
+                // DEC Zero Page
                 case 0xC6:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] -= 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.dec(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // DEC (Zero Page, X)
+                // DEC Zero Page, X
                 case 0xD6:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] -= 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.dec(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // DEC (Absolute)
+                // DEC Absolute
                 case 0xCE:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] -= 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.dec(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // DEC (Absolute, X)
+                // DEC Absolute, X
                 case 0xDE:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP[0] -= 1;
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.dec(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
                 // DEX Implied
                 case 0xCA:
-                    me.X[0] -= 1;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.dex();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
                 // DEY Implied
                 case 0x88:
-                    me.Y[0] -= 1;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.Y[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.Y[0], 7));
-
+                    instructions.dey();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
                 // TAX Implied
                 case 0xAA:
-                    me.X[0] = me.A[0]; 
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.X[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.X[0], 7));
-
+                    instructions.tax();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
                 
                 // TYA Implied
                 case 0x98:
-                    me.A[0] = me.Y[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.tya();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
                 // CMP Immediate
                 case 0xC9:
-                    ADDR[0] = me.PC[0] + 1;
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
                 // CMP Zero Page
                 case 0xC5:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // CMP (Zero Page, X)
+                // CMP Zero Page, X
                 case 0xD5:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
-                // CMP (Absolute)
+                // CMP Absolute
                 case 0xCD:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // CMP (Absolute, X)
+                // CMP Absolute, X
                 case 0xDD:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // CMP (Absolute, Y)
+                // CMP Absolute, Y
                 case 0xD9:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // CMP (Indirect, X)
+                // CMP Indirect, X
                 case 0xC1:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
                     
-                // CMP (Indirect, Y)
+                // CMP Indirect, Y
                 case 0xD1:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    UTEMP[0] = me.A[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cmp(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
                 // CPX Immediate
                 case 0xE0:
-                    ADDR[0] = me.PC[0] + 1;
-                    UTEMP[0] = me.X[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cpx(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // CPX (Zero Page)
+                // CPX Zero Page
                 case 0xE4:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP[0] = me.X[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cpx(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // CPX (Absolute)
+                // CPX Absolute
                 case 0xEC:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    UTEMP[0] = me.X[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cpx(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
                 // CPY Immediate
                 case 0xC0:
-                    ADDR[0] = me.PC[0] + 1;
-                    UTEMP[0] = me.Y[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cpy(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // CPY (Zero Page)
+                // CPY Zero Page
                 case 0xC4:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP[0] = me.Y[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cpy(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // CPY (Absolute)
+                // CPY Absolute
                 case 0xCC:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    UTEMP[0] = me.Y[0];
-                    var result = UTEMP[0] - me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, result == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(result, 7));
-
+                    instructions.cpy(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
@@ -1032,7 +955,6 @@ NES.CPU = function() {
                 // RTI Implied
                 case 0x40:
                     me.P[0] = me.popByte() | 0x20;
-
                     me.PC[0] = me.popWord();
                     cycles -= 6;
                     break;
@@ -1046,10 +968,7 @@ NES.CPU = function() {
                 
                 // PLA Implied
                 case 0x68:
-                    me.A[0] = me.popByte();
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.pla();
                     me.PC[0] += 1;
                     cycles -= 4;
                     break;
@@ -1064,533 +983,280 @@ NES.CPU = function() {
                 // PLP Implied
                 case 0x28:
                     me.P[0] = me.popByte();
-
                     me.PC[0] += 1;
                     cycles -= 4;
                     break;
                 
-                // LSR (Accumulator)
+                // LSR Accumulator
                 case 0x4A:
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(me.A[0], 0));
-                    me.A[0] = me.A[0] >> 1;
-                    me.A[0] = setBit(me.A[0], 7, false);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.lsr();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // LSR (Zero Page)
+                // LSR Zero Page
                 case 0x46:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(UTEMP[0], 0));
-                    UTEMP[0] = UTEMP[0] >> 1;
-                    UTEMP[0] = setBit(UTEMP[0], 7, false);
-                    me.writeByte(ADDR[0], UTEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, UTEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(UTEMP[0], 7));
-
+                    instructions.lsr(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // LSR (Zero Page, X)
+                // LSR Zero Page, X
                 case 0x56:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(UTEMP[0], 0));
-                    UTEMP[0] = UTEMP[0] >> 1;
-                    UTEMP[0] = setBit(UTEMP[0], 7, false);
-                    me.writeByte(ADDR[0], UTEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, UTEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(UTEMP[0], 7));
-
+                    instructions.lsr(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // LSR (Absolute)
+                // LSR Absolute
                 case 0x4E:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(UTEMP[0], 0));
-                    UTEMP[0] = UTEMP[0] >> 1;
-                    UTEMP[0] = setBit(UTEMP[0], 7, false);
-                    me.writeByte(ADDR[0], UTEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, UTEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(UTEMP[0], 7));
-
+                    instructions.lsr(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // LSR (Absolute, X)
+                // LSR Absolute, X
                 case 0x5E:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(UTEMP[0], 0));
-                    UTEMP[0] = UTEMP[0] >> 1;
-                    UTEMP[0] = setBit(UTEMP[0], 7, false);
-                    me.writeByte(ADDR[0], UTEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, UTEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(UTEMP[0], 7));
-
+                    instructions.lsr(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // ORA (Immediate)
+                // ORA Immediate
                 case 0x09:
-                    ADDR[0] = me.PC[0] + 1;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // ORA (Zero Page)
+                // ORA Zero Page
                 case 0x05:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // ORA (Zero Page, X)
+                // ORA Zero Page, X
                 case 0x15:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // ORA (Absolute)
+                // ORA Absolute
                 case 0x0D:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ORA (Absolute, X)
+                // ORA Absolute, X
                 case 0x1D:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ORA (Absolute, Y)
+                // ORA Absolute, Y
                 case 0x19:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ORA (Indirect, X)
+                // ORA Indirect, X
                 case 0x01:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ORA (Indirect, Y)
+                // ORA Indirect, Y
                 case 0x11:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] | TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ora(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // AND (Immediate)
+                // AND Immediate
                 case 0x29:
-                    TEMP[0] = me.readByte(me.PC[0] + 1);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
                     
-                // AND (Zero Page)
+                // AND Zero Page
                 case 0x25:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
 
-                // AND (Zero Page, X)
+                // AND Zero Page, X
                 case 0x35:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
                     
-                // AND (Absolute)
+                // AND Absolute
                 case 0x2D:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // AND (Absolute, X)
+                // AND Absolute, X
                 case 0x3D:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // AND (Absolute, Y)
+                // AND Absolute, Y
                 case 0x39:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // AND (Indirect, X)
+                // AND Indirect, X
                 case 0x21:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
                 // AND (Indirect, Y)
                 case 0x31:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] & TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.and(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
                 // EOR Immediate
                 case 0x49:
-                    me.A[0] = me.A[0] ^ me.readByte(me.PC[0] + 1);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // EOR (Zero Page);
+                // EOR Zero Page
                 case 0x45:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
-                // EOR (Zero Page, X);
+                // EOR Zero Page, X
                 case 0x55:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
-                // EOR (Absolute);
+                // EOR Absolute
                 case 0x4D:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // EOR (Absolute, X);
+                // EOR Absolute, X
                 case 0x5D:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // EOR (Absolute, Y);
+                // EOR Absolute, Y
                 case 0x59:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // EOR (Indirect, X);
+                // EOR Indirect, X
                 case 0x41:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
-                // EOR (Indirect, Y);
+                // EOR Indirect, Y
                 case 0x51:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.A[0] = me.A[0] ^ TEMP[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.eor(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
-                // ROR (Accumulator)
+                // ROR Accumulator
                 case 0x6A:
-                    TEMP[0] = me.A[0] >> 1;
-                    TEMP[0] = setBit(TEMP[0], 7, testBit(me.P[0], C_FLAG));
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(me.A[0], 0));
-                    me.A[0] = TEMP[0];
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.ror();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // ROR (Zero Page)
+                // ROR Zero Page
                 case 0x66:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] >> 1;
-                    TEMP2[0] = setBit(TEMP2[0], 7, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 0));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.ror(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ROR (Zero Page, X)
+                // ROR Zero Page, X
                 case 0x76:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] >> 1;
-                    TEMP2[0] = setBit(TEMP2[0], 7, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 0));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.ror(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ROR (Absolute)
+                // ROR Absolute
                 case 0x6E:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] >> 1;
-                    TEMP2[0] = setBit(TEMP2[0], 7, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 0));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.ror(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // ROR (Absolute, X)
+                // ROR Absolute, X
                 case 0x7E:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] >> 1;
-                    TEMP2[0] = setBit(TEMP2[0], 7, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 0));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.ror(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 7;
                     break;
 
-                // ROL (Accumulator)
+                // ROL Accumulator
                 case 0x2A:
-                    TEMP[0] = me.A[0] << 1;
-                    TEMP[0] = setBit(TEMP[0], 0, testBit(me.P[0], C_FLAG));
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(me.A[0], 7));
-                    me.A[0] = TEMP[0];
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.rol();
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
 
-                // ROL (Zero Page)
+                // ROL Zero Page
                 case 0x26:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] << 1;
-                    TEMP2[0] = setBit(TEMP2[0], 0, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.rol(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ROL (Zero Page, X)
+                // ROL Zero Page, X
                 case 0x36:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] << 1;
-                    TEMP2[0] = setBit(TEMP2[0], 0, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.rol(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ROL (Absolute)
+                // ROL Absolute
                 case 0x2E:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] << 1;
-                    TEMP2[0] = setBit(TEMP2[0], 0, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.rol(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // ROL (Absolute, X)
+                // ROL Absolute, X
                 case 0x3E:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-
-                    TEMP2[0] = TEMP[0] << 1;
-                    TEMP2[0] = setBit(TEMP2[0], 0, testBit(me.P[0], C_FLAG));
-                    me.writeByte(ADDR[0], TEMP2[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP2[0], 7));
-
+                    instructions.rol(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
@@ -1607,356 +1273,156 @@ NES.CPU = function() {
                     cycles -= 2;
                     break;
 
-                // ASL (Zero Page)
+                // ASL Zero Page
                 case 0x06:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    TEMP[0] = TEMP[0] << 1;
-                    TEMP[0] = setBit(TEMP[0], 0, false);
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.asl(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ASL (Zero Page, X)
+                // ASL Zero Page, X
                 case 0x16:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    TEMP[0] = TEMP[0] << 1;
-                    TEMP[0] = setBit(TEMP[0], 0, false);
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.asl(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // ASL (Absolute)
+                // ASL Absolute
                 case 0x0E:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    TEMP[0] = TEMP[0] << 1;
-                    TEMP[0] = setBit(TEMP[0], 0, false);
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.asl(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // ASL (Absolute, X)
+                // ASL Absolute, X
                 case 0x1E:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    me.P[0] = setBit(me.P[0], C_FLAG, testBit(TEMP[0], 7));
-                    TEMP[0] = TEMP[0] << 1;
-                    TEMP[0] = setBit(TEMP[0], 0, false);
-                    me.writeByte(ADDR[0], TEMP[0]);
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.asl(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 6;
                     break;
 
-                // BIT (Zero Page)
+                // BIT Zero Page
                 case 0x24:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP2[0] = TEMP[0] & me.A[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP2[0] == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, testBit(TEMP[0], 6));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.bit(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // BIT (Absolute)
+                // BIT Absolute
                 case 0x2C:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    TEMP[0] = me.readByte(ADDR[0]);
-                    TEMP2[0] = TEMP[0] & me.A[0];
-                    me.P[0] = setBit(me.P[0], Z_FLAG, TEMP2[0] == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, testBit(TEMP[0], 6));
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(TEMP[0], 7));
-
+                    instructions.bit(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ADC (Immediate)
+                // ADC Immediate
                 case 0x69:
-                    UTEMP[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, result >= 0x100);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // ADC (Zero Page)
+                // ADC Zero Page
                 case 0x65:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // ADC (Zero Page, X)
+                // ADC Zero Page, X
                 case 0x75:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
-                // ADC (Absolute)
+                // ADC Absolute
                 case 0x6D:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ADC (Absolute, X)
+                // ADC Absolute, X
                 case 0x7D:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ADC (Absolute, Y)
+                // ADC Absolute, Y
                 case 0x79:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // ADC (Indirect, X)
+                // ADC Indirect, X
                 case 0x61:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
-                // ADC (Indirect, Y)
+                // ADC Indirect, Y
                 case 0x71:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP[0] + UTEMP2[0] + (testBit(me.P[0], C_FLAG) ? 1 : 0);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result &  0x100) != 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, (~(me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.adc(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 6;
                     break;
 
-                // SBC (Immediate)
+                // SBC Immediate
                 case 0xE9:
-                    UTEMP[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.immediate());
                     me.PC[0] += 2;
                     cycles -= 2;
                     break;
 
-                // SBC (Zero Page)
+                // SBC Zero Page
                 case 0xE5:
-                    ADDR[0] = me.readByte(me.PC[0] + 1);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.zeroPage());
                     me.PC[0] += 2;
                     cycles -= 3;
                     break;
 
-                // SBC (Zero Page, X)
+                // SBC Zero Page, X
                 case 0xF5:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = (me.readByte(me.PC[0] + 1) + UTEMP[0]) & 0xFF;
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.zeroPageX());
                     me.PC[0] += 2;
                     cycles -= 4;
                     break;
 
-                // SBC (Absolute)
+                // SBC Absolute
                 case 0xED:
-                    ADDR[0] = me.readWord(me.PC[0] + 1);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.absolute());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // SBC (Absolute, X)
+                // SBC Absolute, X
                 case 0xFD:
-                    UTEMP[0] = me.X[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.absoluteX());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // SBC (Absolute, Y)
+                // SBC Absolute, Y
                 case 0xF9:
-                    UTEMP[0] = me.Y[0];
-                    ADDR[0] = me.readWord(me.PC[0] + 1) + UTEMP[0];
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.absoluteY());
                     me.PC[0] += 3;
                     cycles -= 4;
                     break;
 
-                // SBC (Indirect, X)
+                // SBC Indirect, X
                 case 0xE1:
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (me.readByte((UTEMP2[0] + me.X[0] + 1) & 0xFF) << 8) + me.readByte((UTEMP2[0] + me.X[0]) & 0xFF);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.indirectX());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
 
-                // SBC (Indirect, Y)
+                // SBC Indirect, Y
                 case 0xF1:
-                    UTEMP[0] = me.Y[0];
-                    UTEMP2[0] = me.readByte(me.PC[0] + 1);
-                    ADDR[0] = (((me.readByte((UTEMP2[0] + 1) & 0xFF) << 8) + me.readByte(UTEMP2[0])) + UTEMP[0]);
-                    UTEMP[0] = me.readByte(ADDR[0]);
-                    UTEMP2[0] = me.A[0];
-                    var result = UTEMP2[0] - UTEMP[0] - (testBit(me.P[0], C_FLAG) ? 0 : 1);
-                    me.P[0] = setBit(me.P[0], C_FLAG, (result & 0x100) == 0);
-                    me.P[0] = setBit(me.P[0], V_FLAG, ((me.A[0] ^ UTEMP[0]) & (me.A[0] ^ result) & 0x80) != 0);
-                    me.A[0] = result;
-                    me.P[0] = setBit(me.P[0], Z_FLAG, me.A[0] == 0);
-                    me.P[0] = setBit(me.P[0], N_FLAG, testBit(me.A[0], 7));
-
+                    instructions.sbc(addressModes.indirectY());
                     me.PC[0] += 2;
                     cycles -= 5;
                     break;
@@ -1971,20 +1437,6 @@ NES.CPU = function() {
                     throw('Invalid opcode: ' + opCode.toString(16));
                     return;
             };
-
-            if (debugCondition) {
-                console.log('addr: ' + ADDR[0].toString(16));
-                console.log('after:');
-                console.log('flags: ' + me.P[0].toString(16));
-                console.log('pc: ' + me.PC[0].toString(16));
-                console.log('sp: ' + me.SP[0].toString(16));
-                UTEMP[0] = me.A[0];
-                console.log('me.a: ' + UTEMP[0].toString(16));
-                UTEMP[0] = me.X[0];
-                console.log('x: ' + UTEMP[0].toString(16));
-                UTEMP[0] = me.Y[0];
-                console.log('y: ' + UTEMP[0].toString(16));
-            }
 
             prevOpCode = opCode;
         }
