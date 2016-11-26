@@ -227,13 +227,13 @@ NES.PPU = function() {
                 var color = 0;
 
                 if (me.x + j < 8) {
-                    color = me.tileData1[me.x + j];     
+                    color = me.tileData1[me.x + j];
                 }
                 else {
                     color = me.tileData2[(me.x + j) % 8];
                 }
 
-                if (color != 0) {
+                if ((color & 0x03) != 0) {
                     var paletteAddress = 0x3F00 + color;
                     var idx = me.readByte(paletteAddress);
                     screenSetPixel(i * 8 + j, me.scanline, idx); 
@@ -339,11 +339,49 @@ NES.PPU = function() {
     };
 
     this.writeByte = function(address, value) {
-        me.memory[address] = value;
+        if (address < 0x2000) {
+            me.memory[address] = value;
+        }
+        else if (address < 0x3F00) {
+            address = (address - 0x2000) % 0x1000; 
+            address = 0x2000 + (address % 0x0800);
+            me.memory[address] = value;
+        }
+        else if (address < 0x4000) {
+            address = 0x3F00 | (address & 0x1F);
+            if (address == 0x3F10 || address == 0x3F14 || address == 0x3F18 || address == 0x3F1C) {
+                me.memory[address - 0x10] = value;
+            }
+            else {
+                me.memory[address] = value;
+            }
+        }
+        else {
+            throw('Invalid PPU memory access');
+        }
     };
 
     this.readByte = function(address) {
-        return me.memory[address];
+        if (address < 0x2000) {
+            return me.memory[address];
+        }
+        else if (address < 0x3F00) {
+            address = (address - 0x2000) % 0x1000; 
+            address = 0x2000 + (address % 0x0800);
+            return me.memory[address];
+        }
+        else if (address < 0x4000) {
+            address = 0x3F00 | (address & 0x1F);
+            if (address == 0x3F10 || address == 0x3F14 || address == 0x3F18 || address == 0x3F1C) {
+                return me.memory[address - 0x10];
+            }
+            else {
+                return me.memory[address];
+            }
+        }
+        else {
+            throw('Invalid PPU memory access');
+        }
     };
 
     this.loadChrData = function(chrData) {
