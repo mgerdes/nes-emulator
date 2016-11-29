@@ -330,6 +330,10 @@ NES.PPU = function() {
             if (testBit(me.PPUMASK[0], 4)) {
                 me.drawSpriteScanline();
             }
+
+            if (memoryMapper.handleScanline) {
+                memoryMapper.handleScanline()
+            }
         }
         else if (me.scanline == 240) {
             me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 6, false);
@@ -345,9 +349,6 @@ NES.PPU = function() {
             updateScreen();
         }
 
-        if (memoryMapper.handleScanline) {
-            memoryMapper.handleScanline()
-        }
         me.scanline++;
     };
 
@@ -364,26 +365,40 @@ NES.PPU = function() {
         return me.oamMemory[address];
     };
 
+    this.mirrorAddress = function(address) {
+        if (memoryMapper.mirror == 0) {
+            if (address < 0x2400) {
+            }
+            else if (address < 0x2800) {
+            }
+            else if (address < 0x2C00) {
+                address -= 0x0800;
+            }
+            else {
+                address -= 0x0800;
+            }
+        }
+        else {
+            if (address < 0x2400) {
+            }
+            else if (address < 0x2800) {
+                address -= 0x0400; 
+            }
+            else if (address < 0x2C00) {
+            }
+            else {
+                address -= 0x0400;
+            }
+        }
+        return address;
+    };
+
     this.writeByte = function(address, value) {
         if (address < 0x2000) {
             memoryMapper.writeByte(address, value);
         }
         else if (address < 0x3000) {
-            if (address < 0x2400) {
-
-            }
-            else if (address < 0x2800) {
-                //address -= 0x0400; 
-            }
-            else if (address < 0x2C00) {
-                //address -= 0x0800;
-            }
-            else {
-                //address -= 0x0800;
-                //address -= 0x0400;
-            }
-
-            me.memory[address] = value;
+            me.memory[me.mirrorAddress(address)] = value;
         }
         else if (address < 0x3F00) {
             throw('Implement PPU Write');
@@ -407,21 +422,7 @@ NES.PPU = function() {
             return memoryMapper.readByte(address);
         }
         else if (address < 0x3000) {
-            if (address < 0x2400) {
-
-            }
-            else if (address < 0x2800) {
-                //address -= 0x0400;
-            }
-            else if (address < 0x2C00) {
-                //address -= 0x0800;
-            }
-            else {
-                //address -= 0x0800;
-                //address -= 0x0400;
-            }
-
-            return me.memory[address];
+            return me.memory[me.mirrorAddress(address)];
         }
         else if (address < 0x3F00) {
             throw('Implement PPU Write');

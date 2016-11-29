@@ -35,7 +35,70 @@ NES.Mapper4 = function(prgData, chrData) {
         UTEMP[0] = value;
 
         if (address < 0x2000) {
-            throw('Implement MMC');
+            if (address < 0x0400) {
+                if (chrMode == 0) {
+                    chrData[(bankData[0] << 10) + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[2] << 10) + (address % 0x0400)] = value;
+                }
+            }
+            else if (address < 0x0800) {
+                if (chrMode == 0) {
+                    chrData[(bankData[0] << 10) + 0x0400 + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[3] << 10) + (address % 0x0400)] = value;
+                }
+            }
+            else if (address < 0x0C00) {
+                if (chrMode == 0) {
+                    chrData[(bankData[1] << 10) + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[4] << 10) + (address % 0x0400)] = value;
+                }
+            }
+            else if (address < 0x1000) {
+                if (chrMode == 0) {
+                    chrData[(bankData[1] << 10) + 0x0400 + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[5] << 10) + (address % 0x0400)] = value;
+                }
+            }
+            else if (address < 0x1400) {
+                if (chrMode == 0) {
+                    chrData[(bankData[2] << 10) + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[0] << 10) + (address % 0x0400)] = value;
+                }
+            }
+            else if (address < 0x1800) {
+                if (chrMode == 0) {
+                    chrData[(bankData[3] << 10) + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[0] << 10) + 0x0400 + (address % 0x0400)] = value;
+                }
+            }
+            else if (address < 0x1C00) {
+                if (chrMode == 0) {
+                    chrData[(bankData[4] << 10) + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[1] << 10) + (address % 0x0400)] = value;
+                }
+            }
+            else {
+                if (chrMode == 0) {
+                    chrData[(bankData[5] << 10) + (address % 0x0400)] = value;
+                }
+                else {
+                    chrData[(bankData[1] << 10) + 0x0400 + (address % 0x0400)] = value;
+                }
+            }
         }
         else if (address >= 0x6000 && address < 0x8000) {
             SRAM[address - 0x6000] = value;
@@ -54,6 +117,7 @@ NES.Mapper4 = function(prgData, chrData) {
             else if ((address < 0xC000) && ((address & 0x1) == 0)) {
                 // Mirroring 
                 me.mirror = UTEMP[0] & 0x1;
+                console.log('mirror - ' + me.mirror);
             }
             else if ((address < 0xC000) && ((address & 0x1) == 1)) {
                 // RAM Protect 

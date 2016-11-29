@@ -61,6 +61,16 @@ var initRom = function(file) {
         else if (mmc == 4) {
             memoryMapper = new NES.Mapper4(prgData, chrData);
         }
+        else {
+            throw('Invalid Memory Mapper');
+        }
+
+        if (mirroringType == 1) {
+            memoryMapper.mirror = 0;
+        }
+        else {
+            memoryMapper.mirror = 1;
+        }
 
         console.log('mmc - ' + mmc);
         console.log('prgSize - ' + prgSize);

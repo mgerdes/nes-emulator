@@ -385,6 +385,7 @@ NES.CPU = function() {
 
             switch (opCode) {
                 // BRK 
+                /*
                 case 0x00:
                     //me.P[0] = setBit(me.P[0], I_FLAG, true);
                     me.pushWord(me.PC[0]);
@@ -394,6 +395,7 @@ NES.CPU = function() {
                     me.PC[0] = me.readWord(0xFFFE);
                     cycles -= 7;
                     break;
+                    */
 
                 // JMP Absolute
                 case 0x4C:
@@ -1466,18 +1468,18 @@ NES.CPU = function() {
     };
 
     this.interrupt = function() {
-        me.P[0] = setBit(me.P[0], I_FLAG, true);
         me.pushWord(me.PC[0]);
         me.pushByte(me.P[0]);
+        me.P[0] = setBit(me.P[0], I_FLAG, true);
         me.PC[0] = me.readWord(0xFFFA);
     };
 
     this.irqInterrupt = function() {
         if (!testBit(me.P[0], I_FLAG)) {
-            me.P[0] = setBit(me.P[0], I_FLAG, true);
             me.pushWord(me.PC[0]);
             me.pushByte(me.P[0]);
-            me.PC[0] = me.readByte(0xFFFE);
+            me.P[0] = setBit(me.P[0], I_FLAG, true);
+            me.PC[0] = me.readWord(0xFFFE);
         }
     };
 

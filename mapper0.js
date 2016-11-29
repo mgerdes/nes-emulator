@@ -30,7 +30,7 @@ NES.Mapper0 = function(prgData, chrData) {
             return chrData[address];
         }
         else if (address >= 0x6000 && address < 0x8000) {
-             
+
         }
         else if (address < 0x10000) {
             if ((prgData.length >> 14) == 1) {
