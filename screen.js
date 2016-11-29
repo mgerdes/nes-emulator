@@ -94,7 +94,9 @@ var updateScreen = function() {
 };
 
 var screenSetPixel = function(x, y, c) {
-    if (x < 0 || x > 255 || y < 0 || y > 239) return;
+    if (x < 0 || x > 255 || y < 0 || y > 239) {
+        return;
+    };
 
     id.data[4 * (512 * (2 * y) + (2 * x)) + 0] = palette[c][0];
     id.data[4 * (512 * (2 * y) + (2 * x)) + 1] = palette[c][1];

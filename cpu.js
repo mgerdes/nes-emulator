@@ -33,6 +33,7 @@ NES.CPU = function() {
     me.Y[0] = 0x0;
 
     me.memory = new Uint8Array(0x10000);
+    me.prgData = undefined;
     var count = 0;
 
     var addressModes = {
@@ -358,6 +359,10 @@ NES.CPU = function() {
         while (cycles > 0) {
             count++;
             var opCode = me.readByte(me.PC[0]);
+            if (opCode == undefined) {
+                console.log('No opcode T_T ' + me.PC[0].toString(16));
+            }
+            //console.log(me.PC[0].toString(16) + ', ' + opCode.toString(16));
 
             var debugCondition = false;
 
@@ -379,6 +384,17 @@ NES.CPU = function() {
             }
 
             switch (opCode) {
+                // BRK 
+                case 0x00:
+                    //me.P[0] = setBit(me.P[0], I_FLAG, true);
+                    me.pushWord(me.PC[0]);
+                    me.pushByte(me.P[0]);
+                    me.P[0] = setBit(me.P[0], B_FLAG);
+                    me.P[0] = setBit(me.P[0], I_FLAG);
+                    me.PC[0] = me.readWord(0xFFFE);
+                    cycles -= 7;
+                    break;
+
                 // JMP Absolute
                 case 0x4C:
                     ADDR[0] = me.readWord(me.PC[0] + 1);
@@ -438,6 +454,13 @@ NES.CPU = function() {
                 // CLV Implied
                 case 0xB8:
                     me.P[0] = setBit(me.P[0], V_FLAG, false);
+                    me.PC[0] += 1;
+                    cycles -= 2;
+                    break;
+
+                // CLI Implied
+                case 0x58:
+                    me.P[0] = setBit(me.P[0], I_FLAG, false);
                     me.PC[0] += 1;
                     cycles -= 2;
                     break;
@@ -1444,11 +1467,18 @@ NES.CPU = function() {
 
     this.interrupt = function() {
         me.P[0] = setBit(me.P[0], I_FLAG, true);
-        me.P[0] = setBit(me.P[0], U_FLAG, false);
         me.pushWord(me.PC[0]);
         me.pushByte(me.P[0]);
         me.PC[0] = me.readWord(0xFFFA);
-        //console.log('pc - ' + me.PC[0].toString(16));
+    };
+
+    this.irqInterrupt = function() {
+        if (!testBit(me.P[0], I_FLAG)) {
+            me.P[0] = setBit(me.P[0], I_FLAG, true);
+            me.pushWord(me.PC[0]);
+            me.pushByte(me.P[0]);
+            me.PC[0] = me.readByte(0xFFFE);
+        }
     };
 
     this.pushByte = function(value) {
@@ -1472,48 +1502,53 @@ NES.CPU = function() {
     };
 
     this.writeByte = function(address, value) {
-        if (address == 0x4014) {
-            for (var i = 0; i < 256; i++) {
-                ppu.oamWriteByte(me.readByte(0x100 * value + i));
-            }
-            return;
+        if (address < 0x2000) {
+            me.memory[address % 0x0800] = value;
         }
+        else if (address < 0x4000) {
+            ppu.writeIO(0x2000 + address % 0x08, value);
+        }
+        else if (address < 0x4018) {
+            controller.writeIO(address, value);
 
-        switch (address >> 13) {
-            case 1:
-                ppu.writeIO(address, value);
-                break;
-
-            case 2:
-                controller.writeIO(address, value);
-                break;
-
-            case 3:
-                throw('Implement CPU RAM');
-                break;
-
-            default:
-                if (address >= 0x0800 && address < 0x1600) {
-                    throw('Map the memory');
+            if (address == 0x4014) {
+                value = value << 8;
+                for (var i = 0; i < 256; i++) {
+                    ppu.oamWriteByte(me.readByte(value + i));
                 }
-                me.memory[address] = value;
+            }
+        }
+        else if (address < 0x4020) {
+            // APU
+        }
+        else if (address < 0x10000) {
+            memoryMapper.writeByte(address, value);
+            //me.memory[address] = value;
+        }
+        else {
+            throw('Invalid cpu memory address - ' + address.toString(16)); 
         }
     };
 
     this.readByte = function(address) {
-        switch (address >> 13) {
-            case 1:
-                return ppu.readIO(address);
-
-            case 2:
-                return controller.readIO(address);
-
-            case 3: 
-                throw('Implement CPU RAM');
-                break;
-
-            default:
-                return me.memory[address];
+        if (address < 0x2000) {
+            return me.memory[address % 0x0800];   
+        }
+        else if (address < 0x4000) {
+            return ppu.readIO(0x2000 + address % 0x08);
+        }
+        else if (address < 0x4018) {
+            return controller.readIO(address); 
+        }
+        else if (address < 0x4020) {
+            // APU
+        }
+        else if (address < 0x10000) {
+            return memoryMapper.readByte(address);
+            //return me.memory[address];
+        }
+        else {
+            throw('Invalid cpu memory address - ' + address.toString(16)); 
         }
     };
 
@@ -1540,6 +1575,6 @@ NES.CPU = function() {
 
     this.reset = function() {
         me.PC[0] = me.readWord(0xFFFC);
-        me.SP[0] -= 3;
+        me.SP[0] = 0xFD;
     };
 };

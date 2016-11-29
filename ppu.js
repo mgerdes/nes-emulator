@@ -36,6 +36,8 @@ NES.PPU = function() {
         me.screenBackground[x] = new Array(248);
     }
 
+    me.chrData = undefined;
+
     var UTEMP = new Uint8Array(1);
     var baseNameTableAddresses = new Uint16Array([0x2000, 0x2400, 0x2800, 0x2C00]);
 
@@ -248,11 +250,12 @@ NES.PPU = function() {
         var spriteDrawCount = 0;
         var spriteHeight = testBit(me.PPUCTRL[0], 5) ? 16 : 8;
 
-        for (var i = 0; i < 0x100; i += 4) {
+        for (var i = 0x100 - 0x04; i >= 0x0; i -= 4) {
             var spriteX = me.oamReadByte(i + 3);
             var spriteY = me.oamReadByte(i);
+            var yInTile = me.scanline - spriteY;
 
-            if (spriteY > me.scanline || spriteY + spriteHeight < me.scanline) {
+            if (yInTile < 0 || yInTile >= spriteHeight) {
                 continue;
             }
 
@@ -265,10 +268,25 @@ NES.PPU = function() {
             var hflip = testBit(me.oamReadByte(i + 2), 6);
             var vflip = testBit(me.oamReadByte(i + 2), 7);
 
-            var tileAddress = (testBit(me.PPUCTRL[0], 3) ? 0x1000 : 0);
-            tileAddress += (16 * me.oamReadByte(i + 1));
-            tileAddress += (vflip ? (7 - (me.scanline & 0x07)) : (me.scanline & 0x07));
+            var tileAddress = 0;
+            var tile = me.oamReadByte(i + 1);
+            if (vflip) {
+                yInTile = spriteHeight - 1 - yInTile;
+            }
 
+            if (spriteHeight == 8) {
+                var table = testBit(me.PPUCTRL[0], 3) ? 1 : 0;
+                tileAddress = 0x1000 * table + 16 * tile + yInTile;
+            }
+            else {
+                var table = tile & 0x01;
+                tile &= 0xFE;
+                if (yInTile > 7) {
+                    yInTile -= 8;
+                    tile += 1;
+                }
+                tileAddress = 0x1000 * table + 16 * tile + yInTile;
+            }
             var l = me.readByte(tileAddress);
             var h = me.readByte(tileAddress + 8);
 
@@ -290,9 +308,9 @@ NES.PPU = function() {
                 if (color == 0) continue;
 
                 var idx = me.readByte(paletteAddress + color);
-                screenSetPixel(spriteX + x, spriteY + (me.scanline & 0x07), idx);  
+                screenSetPixel(spriteX + x, me.scanline, idx);
 
-                if (testBit(me.PPUMASK[0], 3) && !me.spriteHitOccured && i == 0 && me.screenBackground[spriteX + x][spriteY + (me.scanline & 0x07)] == color) {
+                if (testBit(me.PPUMASK[0], 3) && !me.spriteHitOccured && i == 0 && me.screenBackground[spriteX + x][me.scanline] == color) {
                     me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 6, true);
                     me.spriteHitOccured = true;
                 }
@@ -327,7 +345,15 @@ NES.PPU = function() {
             updateScreen();
         }
 
+        if (memoryMapper.handleScanline) {
+            memoryMapper.handleScanline()
+        }
         me.scanline++;
+    };
+
+    this.setChrData = function(chrData) {
+        me.chrData = chrData;
+        me.memory.set(chrData, 0x0000);
     };
 
     this.oamWriteByte = function(value) {
@@ -340,12 +366,27 @@ NES.PPU = function() {
 
     this.writeByte = function(address, value) {
         if (address < 0x2000) {
+            memoryMapper.writeByte(address, value);
+        }
+        else if (address < 0x3000) {
+            if (address < 0x2400) {
+
+            }
+            else if (address < 0x2800) {
+                //address -= 0x0400; 
+            }
+            else if (address < 0x2C00) {
+                //address -= 0x0800;
+            }
+            else {
+                //address -= 0x0800;
+                //address -= 0x0400;
+            }
+
             me.memory[address] = value;
         }
         else if (address < 0x3F00) {
-            address = (address - 0x2000) % 0x1000; 
-            address = 0x2000 + (address % 0x0800);
-            me.memory[address] = value;
+            throw('Implement PPU Write');
         }
         else if (address < 0x4000) {
             address = 0x3F00 | (address & 0x1F);
@@ -363,12 +404,27 @@ NES.PPU = function() {
 
     this.readByte = function(address) {
         if (address < 0x2000) {
+            return memoryMapper.readByte(address);
+        }
+        else if (address < 0x3000) {
+            if (address < 0x2400) {
+
+            }
+            else if (address < 0x2800) {
+                //address -= 0x0400;
+            }
+            else if (address < 0x2C00) {
+                //address -= 0x0800;
+            }
+            else {
+                //address -= 0x0800;
+                //address -= 0x0400;
+            }
+
             return me.memory[address];
         }
         else if (address < 0x3F00) {
-            address = (address - 0x2000) % 0x1000; 
-            address = 0x2000 + (address % 0x0800);
-            return me.memory[address];
+            throw('Implement PPU Write');
         }
         else if (address < 0x4000) {
             address = 0x3F00 | (address & 0x1F);
@@ -382,9 +438,5 @@ NES.PPU = function() {
         else {
             throw('Invalid PPU memory access');
         }
-    };
-
-    this.loadChrData = function(chrData) {
-        me.memory.set(chrData, 0x0000);
     };
 };

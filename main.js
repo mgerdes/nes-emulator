@@ -19,6 +19,7 @@ var setBit = function(value, bit, on) {
 var controller = new NES.Controller();
 var cpu = new NES.CPU();
 var ppu = new NES.PPU();
+var memoryMapper = undefined;
 
 var frameNumber = 0;
 var frame = function() {
@@ -51,25 +52,20 @@ var initRom = function(file) {
         var prgData = new Uint8Array(reader.result, 16, prgSize);
         var chrData = new Uint8Array(reader.result, 16 + prgSize, chrSize);
 
-        if (header[4] == 1) {
-            cpu.setMemory(0x8000, prgData);
-            cpu.setMemory(0xC000, prgData);
+        var mmc = ((0xF0 & header[6]) >> 4) | ((0x0F & header[7]) << 4);
+        var mirroringType = header[6] & 0x01;
+
+        if (mmc == 0) {
+            memoryMapper = new NES.Mapper0(prgData, chrData);
         }
-        else {
-            cpu.setMemory(0x8000, prgData);
+        else if (mmc == 4) {
+            memoryMapper = new NES.Mapper4(prgData, chrData);
         }
 
-        if (header[5] == 0) {
-
-        }
-        else if (header[5] == 1) {
-            ppu.loadChrData(chrData);
-        }
-        else {
-            throw('lawl too many chr datas');
-        }
-
-        console.log(header[6].toString(16));
+        console.log('mmc - ' + mmc);
+        console.log('prgSize - ' + prgSize);
+        console.log('chrSize - ' + chrSize);
+        console.log('mirroring - ' + mirroringType);
 
         cpu.reset();
         ppu.init();
@@ -80,8 +76,6 @@ var initRom = function(file) {
 };
 
 var saveState = function() {
-    console.log(cpu);
-    console.log(ppu);
 };
 
 var fileSelectorElement = document.getElementById('rom-file-selector');

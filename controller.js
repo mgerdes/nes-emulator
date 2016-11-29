@@ -21,7 +21,6 @@ NES.Controller = function() {
                 return state[p];
             }
         }
-
         return 0;
     };
 
@@ -30,8 +29,7 @@ NES.Controller = function() {
             if ((value & 1) == 0 && prevWrite == 1) {
                 p = 0;
             }
+            prevWrite = value & 1;
         }
-
-        prevWrite = value & 1;
     };
 };
