@@ -117,7 +117,6 @@ NES.Mapper4 = function(prgData, chrData) {
             else if ((address < 0xC000) && ((address & 0x1) == 0)) {
                 // Mirroring 
                 me.mirror = UTEMP[0] & 0x1;
-                console.log('mirror - ' + me.mirror);
             }
             else if ((address < 0xC000) && ((address & 0x1) == 1)) {
                 // RAM Protect 

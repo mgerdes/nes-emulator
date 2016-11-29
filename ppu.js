@@ -235,11 +235,15 @@ NES.PPU = function() {
                     color = me.tileData2[(me.x + j) % 8];
                 }
 
+                me.screenBackground[i * 8 + j][me.scanline] = (color & 0x3);
+
                 if ((color & 0x03) != 0) {
+                    if (i * 8 + j < 8 && !testBit(me.PPUMASK[0], 1)) {
+                        continue;
+                    }
                     var paletteAddress = 0x3F00 + color;
                     var idx = me.readByte(paletteAddress);
                     screenSetPixel(i * 8 + j, me.scanline, idx); 
-                    me.screenBackground[i * 8 + j][me.scanline] = (color & 0x3);
                 }
             }
         }
@@ -294,6 +298,10 @@ NES.PPU = function() {
             var paletteAddress = 0x3F10 + (paletteAttribute << 2);
 
             for (var x = 0; x < 8; x++) {
+                if (spriteX + x < 8 && !testBit(me.PPUMASK[0], 2)) {
+                    continue;
+                }
+
                 var color = 0;
 
                 if (!hflip) {
@@ -308,7 +316,16 @@ NES.PPU = function() {
                 if (color == 0) continue;
 
                 var idx = me.readByte(paletteAddress + color);
-                screenSetPixel(spriteX + x, me.scanline, idx);
+
+                if (testBit(me.oamReadByte(i + 2), 5)) {
+                    if (me.screenBackground[spriteX + x][me.scanline] == 0x0) {
+                        screenSetPixel(spriteX + x, me.scanline, idx);
+                    }
+                }
+                else {
+                    screenSetPixel(spriteX + x, me.scanline, idx);
+                }
+
 
                 if (testBit(me.PPUMASK[0], 3) && !me.spriteHitOccured && i == 0 && me.screenBackground[spriteX + x][me.scanline] == color) {
                     me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 6, true);
