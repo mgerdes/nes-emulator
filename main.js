@@ -62,7 +62,7 @@ var initRom = function(file) {
             memoryMapper = new NES.Mapper4(prgData, chrData);
         }
         else {
-            throw('Invalid Memory Mapper');
+            throw('Invalid Memory Mapper - ' + mmc);
         }
 
         if (mirroringType == 1) {

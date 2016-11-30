@@ -267,6 +267,7 @@ NES.PPU = function() {
 
             if (spriteDrawCount > 8) {
                 me.PPUSTATUS[0] = setBit(me.PPUSTATUS[0], 5, true);
+                break;
             }
 
             var hflip = testBit(me.oamReadByte(i + 2), 6);

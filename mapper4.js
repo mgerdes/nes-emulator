@@ -5,8 +5,8 @@ NES.Mapper4 = function(prgData, chrData) {
 
     var bankSelect = 0;
     var bankData = new Array(8);
-    var prgMode = 0;
-    var chrMode = 0;
+    var prgMode = 1;
+    var chrMode = 1;
 
     var irqCounter = 0;
     var irqReload = 0;
@@ -112,7 +112,12 @@ NES.Mapper4 = function(prgData, chrData) {
             }
             else if ((address < 0xA000) && ((address & 0x1) == 1)) {
                 // Bank Data 
-                bankData[bankSelect] = UTEMP[0];
+                if (bankSelect == 6 || bankSelect == 7) {
+                    bankData[bankSelect] = UTEMP[0] & ((prgData.length >> 13) - 1);
+                }
+                else {
+                    bankData[bankSelect] = UTEMP[0];
+                }
             }
             else if ((address < 0xC000) && ((address & 0x1) == 0)) {
                 // Mirroring 
