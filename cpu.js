@@ -359,10 +359,6 @@ NES.CPU = function() {
         while (cycles > 0) {
             count++;
             var opCode = me.readByte(me.PC[0]);
-            if (opCode == undefined) {
-                console.log('No opcode T_T ' + me.PC[0].toString(16));
-            }
-            //console.log(me.PC[0].toString(16) + ', ' + opCode.toString(16));
 
             var debugCondition = false;
 

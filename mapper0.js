@@ -3,7 +3,7 @@ var NES = NES || { };
 NES.Mapper0 = function(prgData, chrData) {
     var me = this;    
 
-    this.mirror = 1;
+    this.mirror = ppu.Mirror.Horizontal;
 
     this.writeByte = function(address, value) {
         if (address < 0x2000) {

@@ -14,7 +14,7 @@ NES.Mapper4 = function(prgData, chrData) {
 
     var SRAM = new Uint8Array(0x2000);
 
-    this.mirror = 0;
+    this.mirror = ppu.Mirror.Vertical;
 
     this.handleScanline = function() {
         if (irqCounter == 0) {
@@ -29,7 +29,6 @@ NES.Mapper4 = function(prgData, chrData) {
     };
 
     var UTEMP = new Uint8Array(1);
-    var countyDounty = 0;
 
     this.writeByte = function(address, value) {
         UTEMP[0] = value;
@@ -121,7 +120,12 @@ NES.Mapper4 = function(prgData, chrData) {
             }
             else if ((address < 0xC000) && ((address & 0x1) == 0)) {
                 // Mirroring 
-                me.mirror = UTEMP[0] & 0x1;
+                if ((UTEMP[0] & 0x1) == 0) {
+                    me.mirror = ppu.Mirror.Vertical;
+                }
+                else {
+                    me.mirror = ppu.Mirror.Horizontal;
+                }
             }
             else if ((address < 0xC000) && ((address & 0x1) == 1)) {
                 // RAM Protect 
@@ -144,7 +148,7 @@ NES.Mapper4 = function(prgData, chrData) {
             }
         }
         else {
-            throw('Invalid write address to mapper1 - ' + address.toString(16));
+            throw('Invalid write address to mapper4 - ' + address.toString(16));
         }
     };
 
@@ -253,7 +257,7 @@ NES.Mapper4 = function(prgData, chrData) {
             }
         }
         else {
-            throw('Invalid read address to mapper1 - ' + address.toString(16));
+            throw('Invalid read address to mapper4 - ' + address.toString(16));
         }
     };
 };

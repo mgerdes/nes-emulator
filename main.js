@@ -23,8 +23,6 @@ var memoryMapper = undefined;
 
 var frameNumber = 0;
 var frame = function() {
-    //console.log('frame - ' + frameNumber++);
-
     var startTime = new Date();
 
     for (var i = 0; i < 263; i++) {
@@ -51,12 +49,18 @@ var initRom = function(file) {
 
         var prgData = new Uint8Array(reader.result, 16, prgSize);
         var chrData = new Uint8Array(reader.result, 16 + prgSize, chrSize);
+        if (chrSize == 0) {
+            chrData = new Uint8Array(0x2000);
+        }
 
         var mmc = ((0xF0 & header[6]) >> 4) | ((0x0F & header[7]) << 4);
         var mirroringType = header[6] & 0x01;
 
         if (mmc == 0) {
             memoryMapper = new NES.Mapper0(prgData, chrData);
+        }
+        else if (mmc == 1) {
+            memoryMapper = new NES.Mapper1(prgData, chrData);
         }
         else if (mmc == 4) {
             memoryMapper = new NES.Mapper4(prgData, chrData);
@@ -65,11 +69,11 @@ var initRom = function(file) {
             throw('Invalid Memory Mapper - ' + mmc);
         }
 
-        if (mirroringType == 1) {
-            memoryMapper.mirror = 0;
+        if (mirroringType == 0) {
+            memoryMapper.mirror = ppu.Mirror.Horizontal;
         }
         else {
-            memoryMapper.mirror = 1;
+            memoryMapper.mirror = ppu.Mirror.Vertical;
         }
 
         console.log('mmc - ' + mmc);
@@ -138,25 +142,21 @@ document.onkeydown = function(event) {
     // Up
     if (event.keyCode == 38) {
         selectedPixelY -= 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
     }
 
     // Left
     if (event.keyCode == 37) {
         selectedPixelX -= 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
     }
 
     // Right
     if (event.keyCode == 39) {
         selectedPixelX += 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
     }
 
     // Down
     if (event.keyCode == 40) {
         selectedPixelY += 1; 
-        //console.log(selectedPixelX + ', ' + selectedPixelY);
     }
 };
 

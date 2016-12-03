@@ -36,8 +36,6 @@ NES.PPU = function() {
         me.screenBackground[x] = new Array(248);
     }
 
-    me.chrData = undefined;
-
     var UTEMP = new Uint8Array(1);
     var baseNameTableAddresses = new Uint16Array([0x2000, 0x2400, 0x2800, 0x2C00]);
 
@@ -370,11 +368,6 @@ NES.PPU = function() {
         me.scanline++;
     };
 
-    this.setChrData = function(chrData) {
-        me.chrData = chrData;
-        me.memory.set(chrData, 0x0000);
-    };
-
     this.oamWriteByte = function(value) {
         me.oamMemory[me.OAMADDR[0]++] = value;
     };
@@ -384,7 +377,7 @@ NES.PPU = function() {
     };
 
     this.mirrorAddress = function(address) {
-        if (memoryMapper.mirror == 0) {
+        if (memoryMapper.mirror == ppu.Mirror.Vertical) {
             if (address < 0x2400) {
             }
             else if (address < 0x2800) {
@@ -396,7 +389,7 @@ NES.PPU = function() {
                 address -= 0x0800;
             }
         }
-        else {
+        else if (memoryMapper.mirror == ppu.Mirror.Horizontal) {
             if (address < 0x2400) {
             }
             else if (address < 0x2800) {
@@ -407,6 +400,12 @@ NES.PPU = function() {
             else {
                 address -= 0x0400;
             }
+        }
+        else if (memoryMapper.mirror == ppu.Mirror.Single0) {
+            address = 0x2000 + (address % 0x0400);
+        }
+        else if (memoryMapper.mirror == ppu.Mirror.Single1) {
+            address = 0x2400 + (address % 0x0400);
         }
         return address;
     };
@@ -458,4 +457,11 @@ NES.PPU = function() {
             throw('Invalid PPU memory access');
         }
     };
+};
+
+NES.PPU.prototype.Mirror = {
+    Horizontal: 0,
+    Vertical: 1,
+    Single0: 2,
+    Single1: 3
 };
