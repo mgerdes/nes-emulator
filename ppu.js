@@ -37,7 +37,6 @@ NES.PPU = function() {
     }
 
     var UTEMP = new Uint8Array(1);
-    var baseNameTableAddresses = new Uint16Array([0x2000, 0x2400, 0x2800, 0x2C00]);
 
     this.init = function() {
         me.PPUSTATUS[0] |= 0xA0;
@@ -396,9 +395,10 @@ NES.PPU = function() {
                 address -= 0x0400; 
             }
             else if (address < 0x2C00) {
+                address -= 0x0400;
             }
             else {
-                address -= 0x0400;
+                address -= 0x0800;
             }
         }
         else if (memoryMapper.mirror == ppu.Mirror.Single0) {
@@ -406,6 +406,9 @@ NES.PPU = function() {
         }
         else if (memoryMapper.mirror == ppu.Mirror.Single1) {
             address = 0x2400 + (address % 0x0400);
+        }
+        else {
+            throw('Invalid Mirror: ' + memoryMapper.mirror);
         }
         return address;
     };
