@@ -76,6 +76,8 @@ var initRom = function(file) {
             memoryMapper.mirror = ppu.Mirror.Vertical;
         }
 
+        fileSelectorElement.style.display = 'none'; 
+
         console.log('mmc - ' + mmc);
         console.log('prgSize - ' + prgSize);
         console.log('chrSize - ' + chrSize);
@@ -87,9 +89,6 @@ var initRom = function(file) {
         setInterval(frame, 16);
     };
     reader.readAsArrayBuffer(file);
-};
-
-var saveState = function() {
 };
 
 var fileSelectorElement = document.getElementById('rom-file-selector');
@@ -211,4 +210,3 @@ document.onkeyup = function(event) {
         shouldDrawSprites = !shouldDrawSprites;
     }
 };
-
