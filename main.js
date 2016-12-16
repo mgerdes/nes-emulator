@@ -44,6 +44,12 @@ var initRom = function(file) {
     reader.onloadend = function() {
         var header = new Uint8Array(reader.result, 0, 16);
 
+        if (!(header[0] == 78 && header[1] == 69 && header[2] == 83)) {
+            screenContext.putImageData(id, 0, 0);
+            screenContext.fillText("Invalid File Selected", 256, 50);
+            return;
+        }
+
         var prgSize = 16384 * header[4];
         var chrSize = 8192 * header[5];
 
@@ -66,7 +72,9 @@ var initRom = function(file) {
             memoryMapper = new NES.Mapper4(prgData, chrData);
         }
         else {
-            throw('Invalid Memory Mapper - ' + mmc);
+            screenContext.putImageData(id, 0, 0);
+            screenContext.fillText("Invalid Memory Mapper - " + mmc, 256, 50);
+            return;
         }
 
         if (mirroringType == 0) {

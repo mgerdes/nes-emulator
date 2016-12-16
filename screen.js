@@ -76,8 +76,9 @@ var selectedPixelY = 0;
 
 screenCanvas.style.backgroundColor = 'rgb(' + 0 + ',' + 0 + ',' + 0 + ')';
 screenContext.fillStyle = "white";
+screenContext.textAlign = "center";
 screenContext.font = "20px Lucida Console";
-screenContext.fillText("Select a NES ROM", 155, 50);
+screenContext.fillText("Select a NES ROM", 256, 50);
 
 var updateScreen = function() {
     var idx = ppu.readByte(0x3F00);

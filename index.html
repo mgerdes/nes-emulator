@@ -25,22 +25,25 @@
                 display: block;
                 color: #000;
             }
+
+            #controls {
+                position: absolute;
+                padding: 0;
+                margin: auto;
+                display: block;
+                width: 1000px;
+                height: 480px;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                right: 0
+            }
         </style>
     </head>
     <body>
-        <canvas id="screen-canvas" width="512" height="480"></canvas>
         <input id="rom-file-selector" type="file"/>
-
-        <script src="cpu.js"></script>
-        <script src="mapper0.js"></script>
-        <script src="mapper1.js"></script>
-        <script src="mapper4.js"></script>
-        <script src="ppu.js"></script>
-        <script src="screen.js"></script>
-        <script src="controller.js"></script>
-        <script src="main.js"></script>
-
-        <div style="position: absolute; top: 120;">
+        <canvas id="screen-canvas" width="512" height="480"></canvas>
+        <div id="controls">
             <table>
                 <thead>
                     <tr>
@@ -85,5 +88,15 @@
             <br/>
             <div>Learn more <a href="https://github.com/mgerdes/nes-emulator">here</a>.</div>
         </div>
+
+        <script src="cpu.js"></script>
+        <script src="mapper0.js"></script>
+        <script src="mapper1.js"></script>
+        <script src="mapper4.js"></script>
+        <script src="ppu.js"></script>
+        <script src="screen.js"></script>
+        <script src="controller.js"></script>
+        <script src="main.js"></script>
+
     </body>
 </html>
