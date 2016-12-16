@@ -30,13 +30,60 @@
     <body>
         <canvas id="screen-canvas" width="512" height="480"></canvas>
         <input id="rom-file-selector" type="file"/>
-        <script src="screen.js"></script>
+
+        <script src="cpu.js"></script>
         <script src="mapper0.js"></script>
         <script src="mapper1.js"></script>
         <script src="mapper4.js"></script>
-        <script src="cpu.js"></script>
         <script src="ppu.js"></script>
+        <script src="screen.js"></script>
         <script src="controller.js"></script>
         <script src="main.js"></script>
+
+        <div style="position: absolute; top: 120;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Controls</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Up</td>
+                        <td>W</td>
+                    </tr>
+                    <tr>
+                        <td>Left</td>
+                        <td>A</td>
+                    </tr>
+                    <tr>
+                        <td>Down</td>
+                        <td>S</td>
+                    </tr>
+                    <tr>
+                        <td>Right</td>
+                        <td>D</td>
+                    </tr>
+                    <tr>
+                        <td>A</td>
+                        <td>K</td>
+                    </tr>
+                    <tr>
+                        <td>B</td>
+                        <td>J</td>
+                    </tr>
+                    <tr>
+                        <td>Start</td>
+                        <td>I</td>
+                    </tr>
+                    <tr>
+                        <td>Select</td>
+                        <td>U</td>
+                    </tr>
+                </tbody>
+            </table>
+            <br/>
+            <div>Learn more <a href="https://github.com/mgerdes/nes-emulator">here</a>.</div>
+        </div>
     </body>
 </html>
